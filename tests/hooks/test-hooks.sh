@@ -78,6 +78,24 @@ assert_contains "session-context: shows project header" "$OUTPUT" "Project Conte
 assert_contains "session-context: shows project name" "$OUTPUT" "bma-seoul-inventory"
 assert_contains "session-context: shows region split" "$OUTPUT" "ap-northeast-2"
 
+# --- AI co-author exclusion (contributors) ---
+assert_eq "settings: commit attribution disabled" "" "$(jq -r '.attribution.commit' .claude/settings.json)"
+assert_eq "settings: PR attribution disabled" "" "$(jq -r '.attribution.pr' .claude/settings.json)"
+
+MSG_REPO="$TEST_TMP/msg-repo"
+mkdir -p "$MSG_REPO"
+git -C "$MSG_REPO" init -q
+mkdir -p "$MSG_REPO/scripts"
+cp scripts/install-hooks.sh "$MSG_REPO/scripts/"
+bash "$MSG_REPO/scripts/install-hooks.sh" >/dev/null
+printf 'feat: sample\n\nBody line.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nco-authored-by: Bot <b@x>\n  CO-AUTHORED-BY: Other <o@x>\n\n' \
+    > "$MSG_REPO/msg.txt"
+bash "$MSG_REPO/.git/hooks/commit-msg" "$MSG_REPO/msg.txt"
+MSG_OUT=$(cat "$MSG_REPO/msg.txt")
+assert_not_contains "commit-msg: removes Co-Authored-By in any case" "$(echo "$MSG_OUT" | tr '[:upper:]' '[:lower:]')" "co-authored-by"
+assert_contains "commit-msg: keeps subject and body" "$MSG_OUT" "Body line."
+assert_eq "commit-msg: no trailing blank lines" "Body line." "$(tail -n 1 "$MSG_REPO/msg.txt")"
+
 # --- notify ---
 OUTPUT=$(CLAUDE_NOTIFY_WEBHOOK="" bash .claude/hooks/notify.sh "test" "msg" 2>&1 || true)
 assert_eq "notify.sh: no webhook URL produces no output" "" "$OUTPUT"

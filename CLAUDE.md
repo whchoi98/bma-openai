@@ -39,6 +39,7 @@ artifacts/      - Local build/verification evidence (gitignored; contains deploy
 - **Do not edit `runtime/lifecycle/server.py`.** It is the byte-identical upstream file (SHA-256 in `runtime/UPSTREAM.md`) and is excluded from ruff.
 - **Nothing but UI assets in `webapp/static/`** — `scripts/build_web.py` zips that whole tree into the Web Function.
 - **Privacy rules:** UI and all report formats show only the last 3 digits of account IDs (STS comparisons and S3 evidence keep 12 digits). Never store or display reasoning, analysis messages or raw `command_execution` output.
+- **No AI attribution in git history.** Never add `Co-Authored-By` trailers or "Generated with" lines to commits or PRs. Enforced by `attribution` in `.claude/settings.json` and the `commit-msg` hook from `scripts/install-hooks.sh`.
 - **Pinned versions.** Python deps use `==`, `web/package.json` uses exact versions. Keep it that way.
 - **Style.** Python: ruff `E4,E7,E9,F,I`, line length 110. JS: ESM, `node:test`. Korean user-facing docs use 경어체 or the existing 평서체 of the file being edited.
 
