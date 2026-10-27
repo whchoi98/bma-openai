@@ -51,6 +51,8 @@ assert_contains "check-doc-sync: infra change points to runbook" "$CONTEXT" "dep
 OUTPUT=$(bash .claude/hooks/check-doc-sync.sh "studio/infra/template.yaml" 2>&1 || true)
 assert_contains "check-doc-sync: Studio infra points to the Studio runbook" "$OUTPUT" "deploy-document-studio.md"
 assert_not_contains "check-doc-sync: Studio infra does not point to the desk runbook" "$OUTPUT" "deploy-production.md"
+assert_contains "check-doc-sync: Studio infra points to the CloudFront runbook" "$OUTPUT" "cloudfront-oac.md"
+assert_contains "check-doc-sync: desk infra points to the CloudFront runbook" "$CONTEXT" "cloudfront-oac.md"
 assert_contains "check-doc-sync: studio/ is a source root" \
     " $(sed -n 's/^SOURCE_ROOTS="\(.*\)"$/\1/p' .claude/hooks/check-doc-sync.sh) " " studio "
 

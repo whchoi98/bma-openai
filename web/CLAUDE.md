@@ -21,4 +21,5 @@ in the us-east-1 app S3 bucket, renders reports, and runs operations investigati
 - Mask account IDs (last 3 digits) in every rendered output via `presentation.js`.
 - New or changed route → update `docs/api-reference.md` and add a `web/tests/*.test.js` case.
 - Keep dependency versions exact; run `npm test --prefix web` (node:test) before finishing.
+- The app is served through CloudFront: only anonymous `/` and `/static/*` responses may carry public `Cache-Control`; everything else stays `no-store`. Static asset names are not content-hashed, so invalidate the distributions after a release (`docs/runbooks/cloudfront-oac.md`).
 - `studio/` reuses `bma.js`, `contract.json` and production `node_modules` in its own ZIP (`studio/scripts/build_web.py`); after changing `bma.js`, also run `node --test studio/tests/backend.test.js`.

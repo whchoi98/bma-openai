@@ -42,7 +42,7 @@ uv venv --python 3.12 .studio-venv && uv pip install --python .studio-venv/bin/p
 ln -s ../web/node_modules studio/node_modules
 .studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
 .venv/bin/python -m unittest studio.tests.test_infra
-node --test studio/tests/backend.test.js
+node --test studio/tests/backend.test.js studio/tests/cache-control.test.js
 ```
 
 ## Project Overview
@@ -79,6 +79,7 @@ node --test studio/tests/backend.test.js
 - [Deployment runbook](runbooks/deploy-production.md), [API and IAM mapping](api-iam.md)
 - [BMA operations investigations](bma-investigations.md), [Data and scope](data-and-scope.md)
 - [AI Document Studio](document-studio.md) (Korean), [Studio module](../studio/CLAUDE.md), [Studio deployment runbook](runbooks/deploy-document-studio.md)
+- [CloudFront OAC runbook](runbooks/cloudfront-oac.md), [CloudFront deployment record](cloudfront-deployment.md) (Korean), [ADR-003](decisions/ADR-003-cloudfront-oac-front-door.md)
 
 ---
 
@@ -119,7 +120,7 @@ uv venv --python 3.12 .studio-venv && uv pip install --python .studio-venv/bin/p
 ln -s ../web/node_modules studio/node_modules
 .studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
 .venv/bin/python -m unittest studio.tests.test_infra
-node --test studio/tests/backend.test.js
+node --test studio/tests/backend.test.js studio/tests/cache-control.test.js
 ```
 
 ## 프로젝트 개요
@@ -156,3 +157,4 @@ node --test studio/tests/backend.test.js
 - [배포 런북](runbooks/deploy-production.md), [API·IAM 대응표](api-iam.md)
 - [BMA 운영 조사](bma-investigations.md), [데이터 처리와 범위](data-and-scope.md)
 - [AI Document Studio 사용 안내](document-studio.md), [Studio 모듈](../studio/CLAUDE.md), [Studio 배포 런북](runbooks/deploy-document-studio.md)
+- [CloudFront OAC 운영 절차](runbooks/cloudfront-oac.md), [CloudFront 배포 기록](cloudfront-deployment.md), [ADR-003](decisions/ADR-003-cloudfront-oac-front-door.md)

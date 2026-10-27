@@ -15,6 +15,10 @@ Build the Runtime image and Web Function ZIP, publish them under new immutable v
 `ap-northeast-2`. Commands are taken from the README deployment section and the verified deployment in
 [aws-deployment.md](../aws-deployment.md).
 
+Both public apps now use CloudFront. Follow the [OAC rollout runbook](cloudfront-oac.md)
+for first-time distribution/policy setup and for cache invalidation after Web releases.
+`WebUrl` is the public CDN address; `OriginWebUrl` requires IAM and is not a browser entry point.
+
 ## When to Use
 - Releasing a new version of `aws_inventory/`, `skills/`, `runtime/` or `web/`
 - Changing `infra/template.yaml` parameters, IAM or limits (`MAX_*`)

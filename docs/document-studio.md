@@ -5,9 +5,13 @@
 
 ## 접속과 사용
 
-- 주소: https://fxpdl40ymkzmzv1n.vft.lambda-web.us-east-1.on.aws
+- 주소: https://d3gmtgr1d0tjcl.cloudfront.net
 - 기존 운영 데스크의 이용 키를 사용할 수 있다. 키는 소스나 이 문서에 포함하지 않는다.
 - 현재 모델: **`openai.gpt-6.1-sol`**, BMA, `us-east-1`.
+
+CloudFront와 Lambda Web OAC를 적용했다. 기존 Lambda Web 원본 주소는 `IamAuth`로 보호한다.
+공개 정적 화면만 캐싱하고, API·SSE·개인 문서는 캐싱하지 않는다.
+[서울 접속 측정과 배포 검증](cloudfront-deployment.md)을 참고한다.
 
 1. 이용 키로 연결한다.
 2. XLSX, CSV, TXT, MD 파일 하나를 올리거나 메모를 붙여 넣는다.
@@ -51,7 +55,8 @@ Terra 6.1도 지역 Mantle 후보 목록에서 확인했으나 이 배포의 생
 
 ```mermaid
 flowchart LR
-  U[회사원 브라우저] --> W[별도 Lambda Web Function]
+  U[회사원 브라우저] --> CF[CloudFront / OAC]
+  CF --> W[별도 Lambda Web Function]
   W --> S[비공개 Studio S3]
   W --> F[제한된 작업 Lambda]
   F --> B[BMA / GPT-6.1 Sol]
@@ -59,7 +64,8 @@ flowchart LR
   R --> M[문서 MCP / Python 렌더러]
   M --> S
   S --> W
-  W -->|SSE 실제 상태와 다운로드| U
+  W -->|SSE 실제 상태와 다운로드| CF
+  CF --> U
 ```
 
 앱, BMA, Runtime과 파일 처리는 us-east-1에 있다. 원본 파일과 메모 중 도구가 전달한 내용은 BMA 분석에 사용된다.
@@ -115,7 +121,7 @@ BMA 세션 보관은 S3 파일 만료와 별도다. 모델 추론, Lambda, Runti
 | `live-browser/summary.json` | 브라우저 결과 |
 | `iam-live.json` | IAM 검증 |
 | `source.zip` | 소스와 검증 기록 |
-| `final-state.json` | 최종 배포 상태 |
+| `final-state.json` | 문서 생성 검증 당시 배포 상태 |
 | `final-package-proof.json` | 소스/배포 코드 일치 검사 |
 
 ## 로컬 테스트와 화면

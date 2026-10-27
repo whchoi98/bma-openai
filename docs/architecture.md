@@ -15,6 +15,47 @@ AI-Powered AWS Operations Desk answers natural-language operations questions abo
 A Node.js 24 Lambda Web Function in `us-east-1` creates Bedrock Managed Agents (BMA) sessions on the Mantle model `openai.gpt-6-luna`; BMA runs inside an AgentCore Runtime V2 container that loads 4 Skills and a read-only Python STDIO MCP server with 24 tools.
 Public answer deltas stream back to the browser over SSE, and normalized evidence and reports are stored in a `us-east-1` S3 bucket. Data read from Seoul and passed to the model is analyzed in `us-east-1`.
 A separate demo, [AI Document Studio](#ai-document-studio), reuses the BMA client and Runtime base but runs on its own stacks without AWS resource-query permissions.
+Browsers reach each app through its own CloudFront distribution; the regional Web Function endpoints accept only that distribution's OAC-signed requests ([CloudFront Front Doors](#cloudfront-front-doors)).
+
+## CloudFront Front Doors
+
+The CloudFront-enabled templates declare one distribution and OAC for each Web Function.
+`PriceClass_All` includes Seoul edge locations. HTTPS can terminate near the viewer and public
+assets can be cached there; BMA, Runtime, storage and document generation remain in `us-east-1`.
+This is not a multi-Region application deployment: only TLS termination and public static caching move to the edge.
+
+Deployed and verified on 2026-10-27 UTC; identifiers, cache scope and the verification list are in the
+[CloudFront deployment record](cloudfront-deployment.md).
+
+| App | Viewer URL | Origin auth | Observed Seoul edge | HTML first byte, before / cache HIT |
+|-----|------------|-------------|---------------------|-------------------------------------|
+| AWS Operations Desk | `https://d1ectepf9xg5lq.cloudfront.net` | `IamAuth` | `ICN80-P4` | 578.76 ms / 11.46 ms |
+| AI Document Studio | `https://d3gmtgr1d0tjcl.cloudfront.net` | `IamAuth` | `ICN57-P6` | 593.44 ms / 10.65 ms |
+
+Latency is the median of three new HTTP/1.1 connections from one `ap-northeast-2a` EC2 instance. It does not cover
+cache misses, other networks or regions, or model generation time.
+
+Each regional origin uses OAC `sigv4` with `always-amz-auth`. The final endpoint auth type is
+`IamAuth`; the viewer's Bearer header is preserved for the app's existing authentication.
+A function resource policy grants only `lambda:InvokeWebFunctionEndpoint` on the designated
+endpoint to `cloudfront.amazonaws.com`, conditioned on its exact distribution ARN.
+The staged deployer manages that policy through `lambda-web.put_resource_policy`, separately
+from CloudFormation: no native Web Function policy resource was found in the reviewed schema.
+
+Only `/` and `/static/*` use the public cache behavior. HTML has a 60-second CDN TTL and static
+assets at most 3,600 seconds. Other paths have minimum/default/maximum TTL zero and origin
+`no-store`. Inline `ForwardedValues` preserves Authorization, cookies and query strings;
+the dynamic behavior also forwards Content-Type, X-File-Name, Last-Event-ID, Origin and Accept.
+The viewer Host is omitted, so CloudFront supplies the regional origin hostname.
+Dynamic compression is disabled, and SSE heartbeats stay below the 60-second origin read timeout.
+
+The account's 20 custom cache-policy slots were already occupied, with no suitable
+Authorization-forwarding policy available. The deployment uses inline cache settings instead of
+creating cache-policy resources or changing unrelated distributions and policies.
+
+`WebUrl` is the viewer URL; `OriginWebUrl` is the protected regional origin and returns `403` even with a valid
+app key. Staged rollout, policy recovery and release invalidation are in [the OAC runbook](runbooks/cloudfront-oac.md);
+the decision is recorded in [ADR-003](decisions/ADR-003-cloudfront-oac-front-door.md).
 
 ## Components
 
@@ -49,6 +90,7 @@ A separate demo, [AI Document Studio](#ai-document-studio), reuses the BMA clien
 ### Security Layer
 - **IAM roles** -- `RuntimeRole` is the only role with Seoul read actions; `SessionRole` can only use the selected model and Runtime; `WebRole` can call BMA, pass/assume the session role and write app state; `WorkerRole` is limited to BMA session APIs and its state prefix.
 - **Account pinning** -- `EXPECTED_ACCOUNT_ID` is injected from `AWS::AccountId`; both the Web Function and the MCP compare STS results before acting.
+- **Origin access** -- each Web Function endpoint uses `IamAuth`; a resource policy lets only its own CloudFront distribution (OAC `sigv4`, exact `aws:SourceArn`) invoke it, and the app's Bearer key is still checked.
 
 ## Full Architecture Diagram
 
@@ -90,7 +132,8 @@ flowchart TB
     Logs[CloudWatch Logs<br/>WebLogs, WorkerLogs]
   end
 
-  Browser -->|HTTPS + Bearer| Web
+  Browser -->|HTTPS + Bearer| Edge[CloudFront + OAC]
+  Edge -->|signed HTTPS| Web
   Web --> Routes
   Web -->|create session| BMA
   Web -.->|AGENT_BACKEND=converse| Converse
@@ -104,7 +147,8 @@ flowchart TB
   MCP --> STS
   MCP -->|read-only, region_name=TARGET_REGION| Seoul
   BMA -->|public text delta| Web
-  Web -->|SSE| Browser
+  Web -->|SSE| Edge
+  Edge --> Browser
   Web --> State
   Worker --> State
   State --> Reports
@@ -121,9 +165,9 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  Browser --> Web[Web Function] --> STS1[STS check] --> BMA[BMA Luna] --> Runtime[Runtime V2] --> MCP[STDIO MCP] --> STS2[STS check] --> Seoul[Seoul APIs]
+  Browser --> Edge[CloudFront + OAC] --> Web[Web Function] --> STS1[STS check] --> BMA[BMA Luna] --> Runtime[Runtime V2] --> MCP[STDIO MCP] --> STS2[STS check] --> Seoul[Seoul APIs]
   Seoul --> MCP --> BMA
-  BMA -->|text delta| Web -->|SSE| Browser
+  BMA -->|text delta| Web -->|SSE| Edge --> Browser
   Web --> State[(AppState S3)] --> Reports[Reports]
 ```
 
@@ -132,6 +176,7 @@ flowchart LR
 ### Deployment Region
 - `us-east-1` (US East, N. Virginia): Web Function, BMA, AgentCore Runtime, investigation worker, S3, ECR
 - `ap-northeast-2` (Seoul): read-only query target, no resources created
+- CloudFront edge locations (`PriceClass_All`, including Seoul): TLS termination and public static caching only
 
 ### Modules / Resources
 | Module | Resources | Description |
@@ -139,15 +184,17 @@ flowchart LR
 | `infra/bootstrap.yaml` (stack `bma-seoul-build`) | `AWS::S3::Bucket`, `AWS::S3::BucketPolicy`, `AWS::ECR::Repository` | Versioned code bucket for Web Function ZIPs and the `bma-seoul-runtime` image repository |
 | `infra/template.yaml` (stack `bma-seoul-inventory`) | 4 x `AWS::IAM::Role` | `RuntimeRole`, `SessionRole`, `WebRole`, `WorkerRole` with separated permissions |
 | `infra/template.yaml` | `AWS::BedrockAgentCore::Runtime` | `Runtime`, platform V2, HTTP protocol, image by digest |
-| `infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Node.js 24 Web Function, revision from the code ZIP `VersionId`, public endpoint (`WebUrl`) |
+| `infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Node.js 24 Web Function, revision from the code ZIP `VersionId`, OAC-protected origin (`OriginWebUrl`) |
+| `infra/template.yaml` | `AWS::CloudFront::Distribution`, `AWS::CloudFront::OriginAccessControl` | Viewer URL (`WebUrl`), OAC and separate inline public/private cache settings |
 | `infra/template.yaml` | `AWS::Lambda::Function`, `AWS::Lambda::EventInvokeConfig` | `InvestigationWorker` and its async invoke settings |
 | `infra/template.yaml` | `AWS::S3::Bucket`, `AWS::S3::BucketPolicy`, 2 x `AWS::Logs::LogGroup` | `AppState` with `AppStateTls`, `WebLogs`, `WorkerLogs` |
 | `runtime/Dockerfile` | Container image | `python:3.12-slim`, uid 1000, Codex 0.164.0 ARM64, port 8080 |
 
-### Deployed Resources
-- Web endpoint: `https://<id>.vft.lambda-web.us-east-1.on.aws` (stack output `WebUrl`)
+### Deployment Outputs
+- Viewer URL: stack output `WebUrl`; protected regional origin: `OriginWebUrl`
+- CloudFront identifiers: `DistributionId`, `OriginAccessControlId`
 - Runtime: stack output `RuntimeArn`; app state bucket: stack output `StateBucket`
-- Current values and verification: [aws-deployment.md](aws-deployment.md)
+- Current values and verification: [aws-deployment.md](aws-deployment.md), [cloudfront-deployment.md](cloudfront-deployment.md)
 
 ## AI Document Studio
 
@@ -155,7 +202,8 @@ A separate office-document demo in `studio/`. One XLSX/CSV/TXT/MD file or pasted
 
 ```mermaid
 flowchart LR
-    U[Browser] -->|Bearer key, upload, SSE| SW[Studio Web Function<br/>studio/web]
+    U[Browser] -->|Bearer key, upload, SSE| SE[Studio CloudFront + OAC]
+    SE -->|signed HTTPS| SW[Studio Web Function<br/>studio/web]
     SW -->|job input, state| SD[(Studio data bucket<br/>7-day expiry)]
     SW -->|async invoke| SK[Studio worker<br/>reserved concurrency 2]
     SK -->|one BMA session per job| SB[BMA<br/>openai.gpt-6.1-sol]
@@ -169,7 +217,8 @@ flowchart LR
 | `studio/infra/bootstrap.yaml` (stack `bma-office-build`) | `AWS::ECR::Repository`, `AWS::S3::Bucket`, `AWS::S3::BucketPolicy` | `bma-office-runtime` image repository and the Studio code bucket |
 | `studio/infra/template.yaml` (stack `bma-office-studio`) | 4 x `AWS::IAM::Role` | `RuntimeRole` (job inputs and document outputs only), `SessionRole`, `WorkerRole`, `WebRole` |
 | `studio/infra/template.yaml` | `AWS::BedrockAgentCore::Runtime`, `AWS::Lambda::Function`, `AWS::Lambda::EventInvokeConfig` | Document Runtime (PUBLIC network mode), `StudioWorker` (Node.js 24, 360 s timeout, reserved concurrency 2) |
-| `studio/infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Studio Web Function and its public endpoint (`WebUrl`) |
+| `studio/infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Studio Web Function and OAC-protected origin (`OriginWebUrl`) |
+| `studio/infra/template.yaml` | `AWS::CloudFront::Distribution`, `AWS::CloudFront::OriginAccessControl` | Independent Studio viewer URL (`WebUrl`) and inline cache boundaries |
 | `studio/infra/template.yaml` | `AWS::S3::Bucket`, `AWS::S3::BucketPolicy`, 2 x `AWS::Logs::LogGroup` | `StudioData` (current objects 7 days, noncurrent 1 day), `WebLogs`, `WorkerLogs` |
 | `studio/RuntimeDockerfile` | Container image | `python:3.12-slim`, Office/chart libraries, NanumSquare font, reuses `runtime/bin/codex` and the upstream lifecycle server |
 
@@ -185,6 +234,7 @@ flowchart LR
 - Run investigations in an async worker Lambda with S3 snapshots -- follow-up turns and browser reconnects must survive beyond a single Web Function request, and snapshots let the UI recover the same run.
 - Use the PUBLIC Runtime with HTTPS egress and no cross-region VPC peering -- the MCP only needs public AWS control-plane endpoints in Seoul, so peering would add cost and routing without reducing exposure.
 - Run AI Document Studio on its own stacks, roles, bucket and Runtime ([ADR-002](decisions/ADR-002-separate-document-studio-stack.md)) -- document generation needs file uploads and Office renderers but no AWS resource reads, so sharing the desk's roles would widen both sides.
+- Put one CloudFront distribution with Lambda Web OAC in front of each Web Function and switch the origins to `IamAuth` ([ADR-003](decisions/ADR-003-cloudfront-oac-front-door.md)) -- Seoul users get nearby TLS and cached static files while the public regional endpoints close, and inline `ForwardedValues` keeps Authorization forwarding and zero-TTL private paths without touching the account's full cache-policy quota.
 
 ## Operations
 - Deployment: see [runbooks/deploy-production.md](runbooks/deploy-production.md)
@@ -193,6 +243,7 @@ flowchart LR
 - Data processing, limits and unsupported scope: see [data-and-scope.md](data-and-scope.md)
 - Layer details: see [reference/INDEX.md](reference/INDEX.md)
 - AI Document Studio deployment: see [runbooks/deploy-document-studio.md](runbooks/deploy-document-studio.md)
+- CloudFront and OAC rollout, recovery and cache invalidation: see [runbooks/cloudfront-oac.md](runbooks/cloudfront-oac.md); deployment and Seoul measurements: see [cloudfront-deployment.md](cloudfront-deployment.md)
 
 ---
 
@@ -206,6 +257,47 @@ AI-Powered AWS Operations Desk는 한 AWS 계정의 서울(`ap-northeast-2`) 리
 `us-east-1`의 Node.js 24 Lambda Web Function이 Mantle 모델 `openai.gpt-6-luna`로 Bedrock Managed Agents(BMA) 세션을 만들고, BMA는 Skills 4개와 도구 24개의 읽기 전용 Python STDIO MCP 서버를 실은 AgentCore Runtime V2 컨테이너에서 실행됩니다.
 공개 답변 delta는 SSE로 브라우저에 전달되고, 정규화된 근거와 보고서는 `us-east-1` S3 버킷에 저장됩니다. 서울에서 조회해 모델에 전달한 정보는 `us-east-1`에서 분석됩니다.
 별도 데모인 [AI Document Studio](#ai-document-studio-1)는 BMA 클라이언트와 Runtime 기반을 재사용하지만, AWS 리소스 조회 권한이 없는 독립 스택에서 실행됩니다.
+브라우저는 앱마다 별도의 CloudFront 배포로 접속하며, 리전 Web Function 엔드포인트는 해당 배포가 OAC로 서명한 요청만 받습니다([CloudFront 접속 경로](#cloudfront-접속-경로)).
+
+## CloudFront 접속 경로
+
+CloudFront를 추가한 템플릿은 Web Function마다 별도 배포와 OAC를 정의합니다.
+`PriceClass_All`로 서울 엣지 위치를 포함합니다. 사용자와 가까운 위치에서 HTTPS 연결을 맺고
+공개 자산을 캐시하며, BMA, Runtime, 저장소와 문서 생성은 계속 `us-east-1`에서 실행합니다.
+여러 리전에 앱을 배포하는 구성이 아니며, TLS 종료와 공개 정적 파일 캐시만 엣지로 옮겨 갑니다.
+
+2026-10-27 UTC에 배포와 검증을 마쳤습니다. 식별자, 캐시 범위, 검증 항목은
+[CloudFront 배포 기록](cloudfront-deployment.md)에 있습니다.
+
+| 앱 | 접속 주소 | 오리진 인증 | 관측한 서울 엣지 | HTML 첫 응답, 적용 전 / 캐시 HIT |
+|-----|------------|-------------|---------------------|-------------------------------------|
+| AWS Operations Desk | `https://d1ectepf9xg5lq.cloudfront.net` | `IamAuth` | `ICN80-P4` | 578.76 ms / 11.46 ms |
+| AI Document Studio | `https://d3gmtgr1d0tjcl.cloudfront.net` | `IamAuth` | `ICN57-P6` | 593.44 ms / 10.65 ms |
+
+지연 시간은 `ap-northeast-2a` EC2 한 대에서 새 HTTP/1.1 연결 세 번을 측정한 중앙값입니다. 캐시 MISS,
+다른 회선이나 지역, 모델 생성 시간은 포함하지 않습니다.
+
+리전 오리진의 OAC는 `sigv4`와 `always-amz-auth`를 사용합니다. 최종 엔드포인트 인증 방식은
+`IamAuth`이며, 사용자의 Bearer 헤더는 그대로 앱에 전달됩니다. 함수 리소스 정책은
+`cloudfront.amazonaws.com`에 지정 엔드포인트의 `lambda:InvokeWebFunctionEndpoint`만 허용하고,
+정확한 CloudFront 배포 ARN을 조건으로 둡니다. 확인한 스키마에서 Web Function 정책을 위한
+네이티브 CloudFormation 리소스를 찾지 못했으므로, 단계별 배포 스크립트가
+`lambda-web.put_resource_policy`로 이 정책을 별도 관리합니다.
+
+`/`와 `/static/*`만 공개 캐시 동작을 사용합니다. HTML의 CDN TTL은 60초, 정적 자산은 최대
+3,600초입니다. 나머지 경로는 최소/기본/최대 TTL이 모두 0초이며 오리진도 `no-store`를 보냅니다.
+인라인 `ForwardedValues`는 Authorization, 쿠키, 쿼리 문자열을 전달합니다. 동적 경로에서는
+Content-Type, X-File-Name, Last-Event-ID, Origin, Accept도 전달합니다. 사용자 Host는 제외하여
+CloudFront가 리전 오리진의 호스트 이름을 사용하도록 합니다. 동적 압축은 끄고, SSE heartbeat는
+오리진 읽기 제한 60초보다 짧게 유지합니다.
+
+계정의 사용자 지정 캐시 정책 한도 20개가 모두 사용 중이었고 Authorization을 전달할 수 있는
+기존 정책도 없었습니다. 따라서 다른 배포나 정책을 변경하지 않고, 새 캐시 정책 리소스 없이
+인라인 캐시 설정을 사용합니다.
+
+`WebUrl`은 사용자 접속 주소이고, `OriginWebUrl`은 보호된 리전 오리진으로 올바른 앱 이용 키가 있어도 `403`을
+반환합니다. 단계별 적용, 정책 복구, 배포 후 캐시 무효화는 [OAC 운영 절차](runbooks/cloudfront-oac.md)에,
+결정 배경은 [ADR-003](decisions/ADR-003-cloudfront-oac-front-door.md)에 있습니다.
 
 ## 구성 요소
 
@@ -240,6 +332,7 @@ AI-Powered AWS Operations Desk는 한 AWS 계정의 서울(`ap-northeast-2`) 리
 ### Security Layer
 - **IAM 역할** -- 서울 조회 권한은 `RuntimeRole`에만 있습니다. `SessionRole`은 선택 모델과 Runtime만 사용하고, `WebRole`은 BMA 호출, 세션 역할 전달/위임, 앱 상태 저장만 하며, `WorkerRole`은 BMA 세션 API와 자신의 상태 경로로 제한됩니다.
 - **계정 고정** -- `EXPECTED_ACCOUNT_ID`는 `AWS::AccountId`에서 주입됩니다. Web Function과 MCP 모두 작업 전에 STS 결과와 비교합니다.
+- **오리진 접근** -- 각 Web Function 엔드포인트는 `IamAuth`를 사용합니다. 리소스 정책은 해당 앱의 CloudFront 배포(OAC `sigv4`, 정확한 `aws:SourceArn`)만 호출을 허용하며, 앱의 Bearer 이용 키 검사도 그대로 유지합니다.
 
 ## 전체 아키텍처 다이어그램
 
@@ -281,7 +374,8 @@ flowchart TB
     Logs[CloudWatch Logs<br/>WebLogs, WorkerLogs]
   end
 
-  Browser -->|HTTPS + Bearer| Web
+  Browser -->|HTTPS + Bearer| Edge[CloudFront + OAC]
+  Edge -->|signed HTTPS| Web
   Web --> Routes
   Web -->|create session| BMA
   Web -.->|AGENT_BACKEND=converse| Converse
@@ -295,7 +389,8 @@ flowchart TB
   MCP --> STS
   MCP -->|read-only, region_name=TARGET_REGION| Seoul
   BMA -->|public text delta| Web
-  Web -->|SSE| Browser
+  Web -->|SSE| Edge
+  Edge --> Browser
   Web --> State
   Worker --> State
   State --> Reports
@@ -312,9 +407,9 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  Browser --> Web[Web Function] --> STS1[STS check] --> BMA[BMA Luna] --> Runtime[Runtime V2] --> MCP[STDIO MCP] --> STS2[STS check] --> Seoul[Seoul APIs]
+  Browser --> Edge[CloudFront + OAC] --> Web[Web Function] --> STS1[STS check] --> BMA[BMA Luna] --> Runtime[Runtime V2] --> MCP[STDIO MCP] --> STS2[STS check] --> Seoul[Seoul APIs]
   Seoul --> MCP --> BMA
-  BMA -->|text delta| Web -->|SSE| Browser
+  BMA -->|text delta| Web -->|SSE| Edge --> Browser
   Web --> State[(AppState S3)] --> Reports[Reports]
 ```
 
@@ -323,6 +418,7 @@ flowchart LR
 ### 배포 리전
 - `us-east-1`(미국 동부, 버지니아 북부): Web Function, BMA, AgentCore Runtime, 조사 worker, S3, ECR
 - `ap-northeast-2`(서울): 읽기 전용 조회 대상이며 리소스를 만들지 않습니다
+- CloudFront 엣지 위치(`PriceClass_All`, 서울 포함): TLS 종료와 공개 정적 파일 캐시만 수행합니다
 
 ### 모듈 / 리소스
 | Module | Resources | Description |
@@ -330,15 +426,17 @@ flowchart LR
 | `infra/bootstrap.yaml` (stack `bma-seoul-build`) | `AWS::S3::Bucket`, `AWS::S3::BucketPolicy`, `AWS::ECR::Repository` | Web Function ZIP용 버전 관리 코드 버킷과 `bma-seoul-runtime` 이미지 저장소 |
 | `infra/template.yaml` (stack `bma-seoul-inventory`) | 4 x `AWS::IAM::Role` | 권한을 분리한 `RuntimeRole`, `SessionRole`, `WebRole`, `WorkerRole` |
 | `infra/template.yaml` | `AWS::BedrockAgentCore::Runtime` | `Runtime`, V2 플랫폼, HTTP 프로토콜, digest로 지정한 이미지 |
-| `infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Node.js 24 Web Function, 코드 ZIP `VersionId` 기반 revision, 공개 endpoint(`WebUrl`) |
+| `infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Node.js 24 Web Function, 코드 ZIP `VersionId` 기반 revision, OAC로 보호한 오리진(`OriginWebUrl`) |
+| `infra/template.yaml` | `AWS::CloudFront::Distribution`, `AWS::CloudFront::OriginAccessControl` | 사용자 접속 주소(`WebUrl`), OAC, 인라인 공개/비공개 캐시 설정 |
 | `infra/template.yaml` | `AWS::Lambda::Function`, `AWS::Lambda::EventInvokeConfig` | `InvestigationWorker`와 비동기 호출 설정 |
 | `infra/template.yaml` | `AWS::S3::Bucket`, `AWS::S3::BucketPolicy`, 2 x `AWS::Logs::LogGroup` | `AppStateTls`를 적용한 `AppState`, `WebLogs`, `WorkerLogs` |
 | `runtime/Dockerfile` | Container image | `python:3.12-slim`, uid 1000, Codex 0.164.0 ARM64, 포트 8080 |
 
-### 배포된 리소스
-- Web endpoint: `https://<id>.vft.lambda-web.us-east-1.on.aws`(스택 출력 `WebUrl`)
+### 배포 출력
+- 사용자 접속 주소: 스택 출력 `WebUrl`, 보호된 리전 오리진: `OriginWebUrl`
+- CloudFront 식별자: `DistributionId`, `OriginAccessControlId`
 - Runtime: 스택 출력 `RuntimeArn`, 앱 상태 버킷: 스택 출력 `StateBucket`
-- 현재 값과 검증 결과: [aws-deployment.md](aws-deployment.md)
+- 현재 값과 검증 결과: [aws-deployment.md](aws-deployment.md), [cloudfront-deployment.md](cloudfront-deployment.md)
 
 ## AI Document Studio
 
@@ -346,7 +444,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    U[Browser] -->|Bearer key, upload, SSE| SW[Studio Web Function<br/>studio/web]
+    U[Browser] -->|Bearer key, upload, SSE| SE[Studio CloudFront + OAC]
+    SE -->|signed HTTPS| SW[Studio Web Function<br/>studio/web]
     SW -->|job input, state| SD[(Studio data bucket<br/>7-day expiry)]
     SW -->|async invoke| SK[Studio worker<br/>reserved concurrency 2]
     SK -->|one BMA session per job| SB[BMA<br/>openai.gpt-6.1-sol]
@@ -360,7 +459,8 @@ flowchart LR
 | `studio/infra/bootstrap.yaml` (stack `bma-office-build`) | `AWS::ECR::Repository`, `AWS::S3::Bucket`, `AWS::S3::BucketPolicy` | `bma-office-runtime` 이미지 저장소와 Studio 코드 버킷 |
 | `studio/infra/template.yaml` (stack `bma-office-studio`) | 4 x `AWS::IAM::Role` | `RuntimeRole`(작업 입력과 문서 출력만), `SessionRole`, `WorkerRole`, `WebRole` |
 | `studio/infra/template.yaml` | `AWS::BedrockAgentCore::Runtime`, `AWS::Lambda::Function`, `AWS::Lambda::EventInvokeConfig` | 문서 Runtime(PUBLIC 네트워크 모드), `StudioWorker`(Node.js 24, 제한 시간 360초, 예약 동시성 2) |
-| `studio/infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Studio Web Function과 공개 endpoint(`WebUrl`) |
+| `studio/infra/template.yaml` | `AWS::Lambda::WebFunction`, `AWS::Lambda::WebFunctionRevision`, `AWS::Lambda::WebFunctionEndpoint` | Studio Web Function과 OAC로 보호한 오리진(`OriginWebUrl`) |
+| `studio/infra/template.yaml` | `AWS::CloudFront::Distribution`, `AWS::CloudFront::OriginAccessControl` | 독립 Studio 접속 주소(`WebUrl`)와 인라인 캐시 범위 |
 | `studio/infra/template.yaml` | `AWS::S3::Bucket`, `AWS::S3::BucketPolicy`, 2 x `AWS::Logs::LogGroup` | `StudioData`(현재 객체 7일, 이전 버전 1일), `WebLogs`, `WorkerLogs` |
 | `studio/RuntimeDockerfile` | Container image | `python:3.12-slim`, Office/차트 라이브러리, 나눔스퀘어 글꼴, `runtime/bin/codex`와 upstream lifecycle 서버 재사용 |
 
@@ -376,6 +476,7 @@ flowchart LR
 - 운영 조사는 S3 스냅샷을 쓰는 비동기 worker Lambda에서 실행합니다 -- 후속 질문과 브라우저 재접속이 Web Function 요청 하나의 수명을 넘어 유지되어야 하고, 스냅샷으로 같은 실행을 복구할 수 있기 때문입니다.
 - PUBLIC Runtime의 HTTPS egress를 사용하고 리전 간 VPC Peering은 만들지 않습니다 -- MCP는 서울의 공개 AWS 제어 API endpoint만 필요하므로, Peering은 노출을 줄이지 못한 채 비용과 라우팅만 늘리기 때문입니다.
 - AI Document Studio는 별도 스택, 역할, 버킷, Runtime에서 실행합니다([ADR-002](decisions/ADR-002-separate-document-studio-stack.md)) -- 문서 생성에는 파일 업로드와 Office 렌더러가 필요하지만 AWS 리소스 조회는 필요 없으므로, 운영 데스크와 역할을 공유하면 양쪽 권한이 모두 넓어지기 때문입니다.
+- Web Function마다 Lambda Web OAC를 연결한 CloudFront 배포를 하나씩 두고 오리진을 `IamAuth`로 전환합니다([ADR-003](decisions/ADR-003-cloudfront-oac-front-door.md)) -- 서울 사용자는 가까운 곳에서 TLS 연결과 캐시된 정적 파일을 받고 공개 리전 엔드포인트는 닫히며, 인라인 `ForwardedValues`로 계정의 가득 찬 캐시 정책 한도를 건드리지 않고 Authorization 전달과 TTL 0의 비공개 경로를 유지하기 때문입니다.
 
 ## 운영
 - 배포: [runbooks/deploy-production.md](runbooks/deploy-production.md)를 참고합니다
@@ -384,3 +485,4 @@ flowchart LR
 - 데이터 처리, 한도, 미지원 범위: [data-and-scope.md](data-and-scope.md)를 참고합니다
 - 계층별 상세: [reference/INDEX.md](reference/INDEX.md)를 참고합니다
 - AI Document Studio 배포: [runbooks/deploy-document-studio.md](runbooks/deploy-document-studio.md)를 참고합니다
+- CloudFront와 OAC 적용, 복구, 캐시 무효화: [runbooks/cloudfront-oac.md](runbooks/cloudfront-oac.md), 배포 결과와 서울 측정: [cloudfront-deployment.md](cloudfront-deployment.md)를 참고합니다

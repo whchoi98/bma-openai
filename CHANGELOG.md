@@ -28,10 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add AI Document Studio, a separate demo that turns one XLSX/CSV/TXT/MD file or pasted notes into charts, diagrams, and editable PPTX/DOCX through BMA with `openai.gpt-6.1-sol`.
 - Add a job-bound document MCP with 6 tools that aggregate source values in code and render PNG/SVG, PPTX/DOCX, and a sandboxed HTML preview in three styles.
 - Add separate Studio stacks (`bma-office-build`, `bma-office-studio`) with their own Web Function, worker, document Runtime, roles, and 7-day data bucket, without AWS resource-query permissions.
+- Add a CloudFront distribution with Lambda Web OAC (`sigv4`, `always-amz-auth`, `PriceClass_All`) in front of each Web Function, caching only `/` and `/static/*` and keeping API, SSE, uploads, and private downloads at TTL 0.
+- Add `scripts/deploy_cloudfront.py` (prepare, cutover, inspect) for staged rollout with exact distribution-to-endpoint resource policies, and `scripts/verify_cloudfront.py` / `verify_cloudfront_browser.py` for HTTP and browser checks without new model calls.
+- Add `HEAD` support, `Vary: Authorization, Cookie`, and bounded public `Cache-Control` for anonymous static responses in both Web servers.
 
 ### Changed
 
 - Move the app, BMA, Runtime, and result storage from the deleted Oregon deployment to `us-east-1`.
+- Change both public URLs to CloudFront addresses (`WebUrl`); the regional Lambda Web URL becomes the `OriginWebUrl` output.
+
+### Security
+
+- Restrict both regional Web Function endpoints with `IamAuth` so only the app's own CloudFront distribution can invoke them; direct origin requests return 403 even with a valid access key.
 
 [Unreleased]: https://github.com/whchoi98/bma-openai/commits/main
 
@@ -60,9 +68,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 엑셀/CSV/TXT/MD 파일 하나나 붙여 넣은 메모로 BMA(`openai.gpt-6.1-sol`)를 통해 차트, 다이어그램, 편집 가능한 PPTX/DOCX를 만드는 별도 데모 AI Document Studio 추가
 - 원본 값을 코드로 집계하고 PNG/SVG, PPTX/DOCX, sandbox HTML 미리보기를 세 가지 스타일로 만드는 작업 고정 문서 MCP 도구 6개 추가
 - 자체 Web Function, worker, 문서 Runtime, 역할, 7일 보관 데이터 버킷을 갖추고 AWS 리소스 조회 권한이 없는 별도 Studio 스택(`bma-office-build`, `bma-office-studio`) 추가
+- `/`와 `/static/*`만 캐시하고 API, SSE, 업로드, 개인 다운로드는 TTL 0으로 유지하는 Lambda Web OAC(`sigv4`, `always-amz-auth`, `PriceClass_All`) 기반 CloudFront 배포를 Web Function마다 추가
+- 정확한 배포-엔드포인트 리소스 정책으로 단계별 적용하는 `scripts/deploy_cloudfront.py`(prepare, cutover, inspect)와 새 모델 호출 없이 HTTP·브라우저를 검증하는 `scripts/verify_cloudfront.py`, `verify_cloudfront_browser.py` 추가
+- 두 Web 서버의 익명 정적 응답에 `HEAD` 지원, `Vary: Authorization, Cookie`, 제한된 공개 `Cache-Control` 추가
 
 ### Changed
 
 - 앱, BMA, Runtime, 결과 저장 위치를 삭제한 오레곤 배포에서 `us-east-1`로 이전
+- 두 앱의 공개 주소를 CloudFront 주소(`WebUrl`)로 변경하고, 리전 Lambda Web 주소는 `OriginWebUrl` 출력으로 변경
+
+### Security
+
+- 두 리전 Web Function 엔드포인트를 `IamAuth`로 제한해 해당 앱의 CloudFront 배포만 호출하도록 변경, 올바른 이용 키가 있어도 오리진 직접 요청은 403 반환
 
 [Unreleased]: https://github.com/whchoi98/bma-openai/commits/main

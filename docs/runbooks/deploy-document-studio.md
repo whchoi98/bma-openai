@@ -15,6 +15,10 @@ Build the document Runtime image and the Studio Web Function ZIP, then create or
 `studio/scripts/deploy.py`. The script never touches the Operations Desk stacks
 (`bma-seoul-build`, `bma-seoul-inventory`). Usage and limits: [document-studio.md](../document-studio.md).
 
+Studio's public `WebUrl` is a CloudFront address. Complete the
+[OAC setup and release invalidation](cloudfront-oac.md) before handing over a
+new deployment. Its `OriginWebUrl` uses `IamAuth` and is not a browser entry point.
+
 ## When to Use
 - Releasing a change to `studio/document_tools/`, `studio/skills/`, `studio/web/` or `web/bma.js`
 - Changing `studio/infra/template.yaml` or the Studio model (`BmaModel`)
@@ -31,7 +35,7 @@ Build the document Runtime image and the Studio Web Function ZIP, then create or
 ```bash
 .studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
 .venv/bin/python -m unittest studio.tests.test_infra
-node --test studio/tests/backend.test.js
+node --test studio/tests/backend.test.js studio/tests/cache-control.test.js
 .venv/bin/cfn-lint studio/infra/bootstrap.yaml studio/infra/template.yaml
 ```
 cfn-lint exits 4 with `W3037` warnings for the `bedrock-mantle:*` actions, as for the desk templates. Any `E` code blocks the deployment.
@@ -109,7 +113,7 @@ jq '{runtime_image_uri, code_key, code_version_id}' artifacts/studio/deployment.
 ```bash
 .studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
 .venv/bin/python -m unittest studio.tests.test_infra
-node --test studio/tests/backend.test.js
+node --test studio/tests/backend.test.js studio/tests/cache-control.test.js
 .venv/bin/cfn-lint studio/infra/bootstrap.yaml studio/infra/template.yaml
 ```
 운영 데스크 템플릿과 마찬가지로 cfn-lint는 `bedrock-mantle:*` 액션에 대한 `W3037` 경고와 함께 종료 코드 4를 반환합니다. `E` 코드가 하나라도 있으면 배포하지 않습니다.

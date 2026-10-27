@@ -6,10 +6,14 @@
 
 ## 접속
 
-- 웹 주소: https://kjg2885550xzd9cc.vft.lambda-web.us-east-1.on.aws
+- 웹 주소: https://d1ectepf9xg5lq.cloudfront.net
 - 기존 접속 키를 그대로 사용한다. 키 파일은 `artifacts/deployment-secrets.json`이며 파일 모드는 `0600`이다.
 - 키는 소스, 문서, 브라우저 번들에 포함하지 않는다. 인증하지 않은 API 요청은 401이다.
 - 화면의 계정 ID는 `*********239`로 표시한다.
+
+두 앱에 CloudFront와 Lambda Web OAC를 적용했다. 기존 Lambda Web 원본 주소는
+`IamAuth`로 보호하며 일반 접속은 403으로 차단한다.
+[배포 결과와 서울 성능 측정](cloudfront-deployment.md)에 새 주소, 캐시 범위와 검증 근거가 있다.
 
 ## 현재 배포
 
@@ -22,7 +26,9 @@
 | 모델 처리 범위 | `MODEL_PROCESSING_SCOPE=app_region` |
 | Runtime | `bma_seoul_inventory-b47GS14QWS`, V2, 버전 `1`, READY |
 | Web Function | `bma-seoul-inventory-web`, Node.js 24 |
-| Web Revision | `rev-zdcqi`, 트래픽 100%, Active |
+| Web Revision | `rev-vsnke`, 트래픽 100%, Active |
+| CloudFront | `E29FC3EO2B1EO7`, PriceClass_All |
+| Lambda Web OAC | `E26MHANVN9NN7J`, `sigv4`, `always-amz-auth` |
 | 스택 | `bma-seoul-build`, `bma-seoul-inventory`, UPDATE_COMPLETE |
 | 앱 결과 버킷 | `bma-seoul-inventory-appstate-rcrtiyvn592m` |
 | 지원 범위 | 24개 MCP 도구, 4개 Skills, 13개 서비스 표시 범주 |
@@ -53,13 +59,15 @@
 
 ```mermaid
 flowchart LR
-  U[브라우저] --> W["Web Function / us-east-1"]
+  U[브라우저] --> CF["CloudFront / OAC"]
+  CF --> W["Web Function / us-east-1"]
   W --> B["BMA / Mantle<br/>openai.gpt-6-luna / us-east-1"]
   B --> R["AgentCore Runtime V2 / us-east-1"]
   R --> M["Python STDIO MCP / Skills"]
   M --> A["서울 AWS 제어 API / ap-northeast-2"]
   B -->|공개 답변 delta| W
-  W -->|SSE| U
+  W -->|SSE| CF
+  CF --> U
   W --> S["보고서와 근거 / S3 us-east-1"]
 ```
 

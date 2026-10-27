@@ -13,6 +13,7 @@ VALUES = {
     "RuntimeName": "bma_seoul_inventory", "RuntimeRepositoryName": "bma-seoul-runtime",
     "BmaModel": "openai.test-model", "ConverseModel": "global.openai.gpt-6-luna",
     "AWS::StackName": "bma-seoul-inventory", "WebEndpoint.DomainName": "example.lambda-web.us-east-1.on.aws",
+    "WebDistribution.DomainName": "example.cloudfront.net",
     "MaxResources": "2", "MaxPages": "2", "MaxMetricHours": "1",
     "MaxDatapoints": "100", "MaxTurnSeconds": "300",
     "WebFunctionName": "bma-seoul-inventory-web", "CodeBucket.Arn": "arn:aws:s3:::code-bucket",

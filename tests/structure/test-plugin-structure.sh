@@ -18,7 +18,8 @@ for f in CLAUDE.md README.md CHANGELOG.md LICENSE .editorconfig .env.example .gi
          docs/architecture.md docs/onboarding.md docs/api-reference.md \
          docs/decisions/.template.md docs/runbooks/.template.md docs/runbooks/deploy-production.md \
          docs/reference/INDEX.md docs/runbooks/deploy-document-studio.md docs/document-studio.md \
-         studio/README.md studio/examples/monthly-sales.xlsx studio/examples/monthly-sales-en.xlsx; do
+         studio/README.md studio/examples/monthly-sales.xlsx studio/examples/monthly-sales-en.xlsx \
+         docs/cloudfront-deployment.md docs/runbooks/cloudfront-oac.md; do
     assert_file_exists "$f" "$f"
 done
 
@@ -112,7 +113,8 @@ assert_eq "README English and Korean sections show the same screenshots" "$EN_IM
 # --- Bilingual documents use ASCII anchors with sentinels ---
 for doc in README.md CHANGELOG.md docs/architecture.md docs/onboarding.md docs/api-reference.md \
            docs/runbooks/deploy-production.md docs/decisions/ADR-001-read-only-tool-boundary.md \
-           docs/runbooks/deploy-document-studio.md docs/decisions/ADR-002-separate-document-studio-stack.md; do
+           docs/runbooks/deploy-document-studio.md docs/decisions/ADR-002-separate-document-studio-stack.md \
+           docs/runbooks/cloudfront-oac.md docs/decisions/ADR-003-cloudfront-oac-front-door.md; do
     if grep -qF '<a id="english"></a>' "$doc" && grep -qF '<a id="korean"></a>' "$doc"; then
         pass "Bilingual anchors: $doc"
     else

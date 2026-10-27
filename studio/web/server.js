@@ -38,10 +38,15 @@ export function createStudioApp(settings, dependencies = {}) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost"), path = url.pathname;
     try {
-      if (req.method === "GET" && staticFiles[path]) {
+      if (["GET", "HEAD"].includes(req.method) && staticFiles[path]) {
         const [file, mime] = staticFiles[path];
-        res.writeHead(200, { ...headers, "content-type": mime });
-        return res.end(await readFile(fileURLToPath(new URL(file, root))));
+        const bytes = await readFile(fileURLToPath(new URL(file, root)));
+        const cacheControl = req.headers.authorization || req.headers.cookie ? "no-store"
+          : path === "/" ? "public, max-age=0, s-maxage=60, must-revalidate"
+          : "public, max-age=300, s-maxage=3600, must-revalidate";
+        res.writeHead(200, { ...headers, "content-type": mime,
+          "cache-control": cacheControl, "vary": "Authorization, Cookie", "content-length": bytes.length });
+        return res.end(req.method === "HEAD" ? undefined : bytes);
       }
       if (path === "/health") return json(res, 200, { status: "ok" });
       if (!path.startsWith("/api/")) return json(res, 404, { error: "NotFound" });

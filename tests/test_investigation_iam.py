@@ -16,6 +16,7 @@ VALUES = {
     "RuntimeRepositoryName": "bma-seoul-runtime", "BmaModel": "openai.gpt-6-luna",
     "ConverseModel": "global.openai.gpt-6-luna", "AWS::StackName": "bma-seoul-inventory",
     "WebEndpoint.DomainName": "example.lambda-web.us-east-1.on.aws",
+    "WebDistribution.DomainName": "example.cloudfront.net",
     "MaxResources": "2", "MaxPages": "2", "MaxMetricHours": "1",
     "MaxDatapoints": "100", "MaxTurnSeconds": "300",
     "Runtime.AgentRuntimeArn": f"arn:aws:bedrock-agentcore:{REGION}:{ACCOUNT}:runtime/demo",

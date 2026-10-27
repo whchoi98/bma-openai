@@ -17,6 +17,7 @@ limits: `../docs/document-studio.md`.
 - `web/static/` — UI (`index.html`, `app.js`, `style.css`, NanumSquare OTF + `OFL.txt`); zipped as-is
 - `skills/` — 3 Skills: `document-data-chart`, `document-diagram`, `document-office-composer`
 - `infra/bootstrap.yaml` (ECR `bma-office-runtime` + code bucket), `infra/template.yaml` (roles, Runtime, Web Function, worker, data bucket)
+- The main template also owns Studio's CloudFront distribution and Lambda Web OAC. `WebUrl` is the public CDN address; `OriginWebUrl` uses `IamAuth`. Apply the exact distribution-to-endpoint resource policy with `scripts/deploy_cloudfront.py`; see `docs/runbooks/cloudfront-oac.md`.
 - `RuntimeDockerfile` — reuses `runtime/bin/codex`, `runtime/lifecycle/server.py`; installs `requirements.txt`
 - `scripts/` — `build_web.py`, `deploy.py` (live), `verify_live.py` / `verify_browser.py` (live), `render_fixtures.py` + `fixture_server.mjs` (local README screenshots)
 - `examples/` — demo inputs (Korean and English); `tests/` — unittest + node:test suites
@@ -27,9 +28,10 @@ limits: `../docs/document-studio.md`.
 - `scripts/build_web.py` zips all of `studio/web/` plus `web/bma.js`, `web/contract.json` and production `web/node_modules`. Put no docs under `studio/web/`; changes to `web/bma.js` affect Studio too. Locally, run `ln -s ../web/node_modules studio/node_modules` (gitignored) so Studio modules resolve packages.
 - Templates, `config.js` and `deploy.py` default to `openai.gpt-6-luna`; the live stack runs Sol because `artifacts/studio/deployment.json` sets `model`. Check it before `main`/`update`.
 - Only the last job ID and display preferences may persist in the browser; keys, files and notes must not.
+- Never cache `/api/*`, SSE, uploads or document downloads. Inline CloudFront forwarding keeps their TTL at zero and retains Authorization, Content-Type and X-File-Name without forwarding viewer Host. Public HTML caches for 60 seconds and static assets for up to one hour at the edge.
 - Tests (no AWS or model calls):
   - `.studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job`
   - `.venv/bin/python -m unittest studio.tests.test_infra` (needs PyYAML)
-  - `node --test studio/tests/backend.test.js studio/tests/frontend.test.mjs` (browser test runs when `STUDIO_PLAYWRIGHT` points at Playwright's `index.mjs`; `STUDIO_CHROMIUM` overrides the browser)
+  - `node --test studio/tests/backend.test.js studio/tests/cache-control.test.js studio/tests/frontend.test.mjs` (browser test runs when `STUDIO_PLAYWRIGHT` points at Playwright's `index.mjs`; `STUDIO_CHROMIUM` overrides the browser)
 - Create the venv with `uv venv --python 3.12 .studio-venv && uv pip install --python .studio-venv/bin/python -r studio/requirements.txt`.
 - Ask before `deploy.py`, `verify_live.py` or `verify_browser.py`: real account, model and cost. Follow `docs/runbooks/deploy-document-studio.md`.

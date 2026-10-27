@@ -57,13 +57,13 @@ fi
 
 # Infrastructure changes must be reflected in runbooks and architecture docs
 if [[ "$FILE_PATH" == studio/infra/*.yaml || "$FILE_PATH" == studio/RuntimeDockerfile ]]; then
-    MESSAGES+=("[doc-sync] Studio infrastructure changed: check docs/architecture.md (AI Document Studio) and docs/runbooks/deploy-document-studio.md.")
+    MESSAGES+=("[doc-sync] Studio infrastructure changed: check docs/architecture.md (AI Document Studio), docs/runbooks/deploy-document-studio.md and, for CloudFront behaviors, docs/runbooks/cloudfront-oac.md.")
 elif [[ "$FILE_PATH" == */Dockerfile || "$FILE_PATH" == Dockerfile* || "$FILE_PATH" == infra/*.yaml ]]; then
     RUNBOOK_COUNT=$(find docs/runbooks -name '*.md' -not -name '.template.md' 2>/dev/null | wc -l)
     if [ "$RUNBOOK_COUNT" -eq 0 ]; then
         MESSAGES+=("[doc-sync] No runbooks found. Create operational runbooks for deployment/recovery.")
     fi
-    MESSAGES+=("[doc-sync] Infrastructure changed: check docs/architecture.md (Infrastructure) and docs/runbooks/deploy-production.md.")
+    MESSAGES+=("[doc-sync] Infrastructure changed: check docs/architecture.md (Infrastructure), docs/runbooks/deploy-production.md and, for CloudFront behaviors, docs/runbooks/cloudfront-oac.md.")
 fi
 
 [ "${#MESSAGES[@]}" -eq 0 ] && exit 0

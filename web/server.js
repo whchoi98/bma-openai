@@ -93,10 +93,15 @@ export function createApp(settings, dependencies = {}) {
           return json(res, 401, { error: "AuthenticationRequired" });
         }
       }
-      if (req.method === "GET" && path in files) {
+      if (["GET", "HEAD"].includes(req.method) && path in files) {
         const [file, type] = files[path];
-        res.writeHead(200, { ...responseHeaders, "content-type": type });
-        return res.end(await readFile(fileURLToPath(new URL(file, root))));
+        const bytes = await readFile(fileURLToPath(new URL(file, root)));
+        const cacheControl = req.headers.authorization || req.headers.cookie ? "no-store"
+          : path === "/" ? "public, max-age=0, s-maxage=60, must-revalidate"
+          : "public, max-age=300, s-maxage=3600, must-revalidate";
+        res.writeHead(200, { ...responseHeaders, "content-type": type,
+          "cache-control": cacheControl, "vary": "Authorization, Cookie", "content-length": bytes.length });
+        return res.end(req.method === "HEAD" ? undefined : bytes);
       }
       if (req.method === "GET" && path === "/health") return json(res, 200, { status: "ok" });
       if (req.method === "GET" && path === "/api/context") {

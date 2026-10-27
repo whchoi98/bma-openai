@@ -13,7 +13,7 @@
 
 | Environment | Base URL |
 |-------------|----------|
-| Deployed | `WebUrl` output of the `bma-seoul-inventory` stack (Lambda Web Function endpoint in `us-east-1`) |
+| CloudFront-enabled deployment | `WebUrl` output of the `bma-seoul-inventory` stack; use the CloudFront URL after OAC cutover |
 | Local | `http://127.0.0.1:3000` (`AWS_LAMBDA_HTTP_ENDPOINT` overrides host and port) |
 
 The deployed server is `web/server.js` (Node.js 24). `webapp/main.py` is a Python reference app that implements a subset (see [Python Reference App](#python-reference-app)).
@@ -29,13 +29,14 @@ Authorization: Bearer <APP_ACCESS_TOKEN>
 - The key is compared in constant time. A missing or wrong key returns `401 {"error": "AuthenticationRequired"}`.
 - `/`, `/static/*` and `/health` do not require the key.
 - The key is a single shared secret for trusted demo users; there is no per-user identity.
+- After OAC cutover, CloudFront signs origin requests without replacing this header. Direct requests to `OriginWebUrl` return `403`, including requests carrying a valid application key.
 
 ## Common Behavior
 
 - Request bodies are JSON and limited to 16,384 bytes (`413 RequestTooLarge`). Unknown body keys are rejected.
 - Context, chat, history and investigation endpoints call STS before doing work. A different account returns `409 AccountMismatch`; an STS failure returns `503 AccountVerificationFailed`. Report export reads the stored record without an STS call.
 - Errors are JSON `{"error": "<Code>"}` with a named code only. Raw AWS or model error text is never returned.
-- Every response carries `cache-control: no-store`, `x-content-type-options: nosniff`, `referrer-policy: no-referrer` and a `content-security-policy` limited to `'self'`.
+- APIs, streams, downloads, health responses and errors carry `cache-control: no-store`. Public static files use the bounded cache policy below. Security headers include `x-content-type-options: nosniff`, `referrer-policy: no-referrer` and the application's `content-security-policy`.
 - JSON responses for runs and investigations contain the full 12-digit account ID. Rendered reports (Markdown, HTML, DOCX, PPTX) mask it to the last 3 digits.
 
 ## Endpoints
@@ -44,10 +45,22 @@ Authorization: Bearer <APP_ACCESS_TOKEN>
 
 | Method | Path | Response |
 |--------|------|----------|
-| `GET` | `/` | `index.html` |
-| `GET` | `/static/style.css`, `/static/report.css`, `/static/app.js` | Page assets |
-| `GET` | `/static/fonts/NanumSquareB.otf`, `/static/fonts/OFL.txt` | Local font and its license |
+| `GET`, `HEAD` | `/` | `index.html`; `HEAD` returns headers only |
+| `GET`, `HEAD` | `/static/style.css`, `/static/report.css`, `/static/app.js` | Page assets |
+| `GET`, `HEAD` | `/static/fonts/NanumSquareB.otf`, `/static/fonts/OFL.txt` | Local font and its license |
 | `GET` | `/health` | `200 {"status": "ok"}` |
+
+Both apps return `Vary: Authorization, Cookie` on static responses. Anonymous `/` responses use
+`Cache-Control: public, max-age=0, s-maxage=60, must-revalidate`; anonymous static assets use
+`public, max-age=300, s-maxage=3600, must-revalidate`. A static request carrying `Authorization`
+or `Cookie` gets `no-store`. `HEAD` includes the same content type and content length as `GET`,
+with no body. Missing files and unsupported routes remain uncacheable.
+
+CloudFront's private cache behavior has minimum/default/maximum TTL zero. Its inline
+`ForwardedValues` preserves Authorization, required upload/SSE headers, cookies and query strings
+without forwarding the viewer Host. The origin also sends `no-store`; a positive private-path
+TTL must not be introduced. See
+[CloudFront OAC runbook](runbooks/cloudfront-oac.md).
 
 ### Context
 
@@ -223,6 +236,9 @@ The stream ends after 360 seconds; reconnect with the same URL to resume from st
 
 A separate server, `studio/web/server.js`, on the `WebUrl` of the `bma-office-studio` stack. All `/api/*` paths need `Authorization: Bearer <APP_ACCESS_TOKEN>`; the STS account is checked after authentication (`409 {"error":"AccountMismatch"}`). Full request and job shapes: [studio/README.md](../studio/README.md#web-api).
 
+Studio uses the same static GET/HEAD and cache rules above, with no `/static/report.css` route.
+Uploads, job snapshots, SSE, file downloads and inline HTML previews all use `no-store`.
+
 | Method and path | Request | Response |
 |-----------------|---------|----------|
 | `GET /api/config` | - | `{model, app_region, styles, limits, formats}` |
@@ -250,7 +266,7 @@ Job `status` is `queued`, `running`, `complete`, `partial`, `failed`, `cancelled
 
 | 환경 | Base URL |
 |------|----------|
-| 배포 | `bma-seoul-inventory` 스택의 `WebUrl` 출력(`us-east-1` Lambda Web Function endpoint) |
+| CloudFront 구성 배포 | `bma-seoul-inventory` 스택의 `WebUrl` 출력. OAC 전환 뒤에는 CloudFront 주소를 사용합니다 |
 | 로컬 | `http://127.0.0.1:3000`(`AWS_LAMBDA_HTTP_ENDPOINT`로 호스트와 포트 변경) |
 
 배포 서버는 `web/server.js`(Node.js 24)입니다. `webapp/main.py`는 일부 기능만 구현한 Python 참조 앱입니다([Python 참조 앱](#python-참조-앱) 참고).
@@ -266,13 +282,14 @@ Authorization: Bearer <APP_ACCESS_TOKEN>
 - 키는 상수 시간으로 비교합니다. 키가 없거나 다르면 `401 {"error": "AuthenticationRequired"}`를 반환합니다.
 - `/`, `/static/*`, `/health`에는 키가 필요하지 않습니다.
 - 신뢰된 데모 사용자를 위한 공유 비밀 하나이며 사용자별 인증은 없습니다.
+- OAC 전환 뒤에는 CloudFront가 이 헤더를 유지한 채 오리진 요청을 서명합니다. `OriginWebUrl` 직접 요청은 올바른 앱 이용 키가 있어도 `403`으로 거부됩니다.
 
 ## 공통 동작
 
 - 요청 본문은 JSON이며 16,384바이트로 제한합니다(`413 RequestTooLarge`). 알 수 없는 본문 키는 거부합니다.
 - 컨텍스트, 채팅, 이력, 운영 조사 엔드포인트는 작업 전에 STS를 호출합니다. 계정이 다르면 `409 AccountMismatch`, STS 호출이 실패하면 `503 AccountVerificationFailed`를 반환합니다. 보고서 내보내기는 STS 호출 없이 저장된 레코드를 읽습니다.
 - 오류는 이름이 정해진 코드만 담은 JSON `{"error": "<Code>"}`입니다. AWS나 모델의 원문 오류는 반환하지 않습니다.
-- 모든 응답에 `cache-control: no-store`, `x-content-type-options: nosniff`, `referrer-policy: no-referrer`와 `'self'`로 제한한 `content-security-policy`를 붙입니다.
+- API, 스트림, 다운로드, 상태 확인, 오류 응답은 `cache-control: no-store`를 사용합니다. 공개 정적 파일은 아래의 제한된 캐시 정책을 사용합니다. 보안 헤더는 `x-content-type-options: nosniff`, `referrer-policy: no-referrer`와 앱의 `content-security-policy`입니다.
 - 실행 기록과 운영 조사의 JSON 응답에는 12자리 전체 계정 ID가 들어 있습니다. 렌더링한 보고서(Markdown, HTML, DOCX, PPTX)는 마지막 3자리만 표시합니다.
 
 ## 엔드포인트
@@ -281,10 +298,22 @@ Authorization: Bearer <APP_ACCESS_TOKEN>
 
 | Method | Path | Response |
 |--------|------|----------|
-| `GET` | `/` | `index.html` |
-| `GET` | `/static/style.css`, `/static/report.css`, `/static/app.js` | 화면 자산 |
-| `GET` | `/static/fonts/NanumSquareB.otf`, `/static/fonts/OFL.txt` | 로컬 폰트와 라이선스 |
+| `GET`, `HEAD` | `/` | `index.html`. `HEAD`는 헤더만 반환 |
+| `GET`, `HEAD` | `/static/style.css`, `/static/report.css`, `/static/app.js` | 화면 자산 |
+| `GET`, `HEAD` | `/static/fonts/NanumSquareB.otf`, `/static/fonts/OFL.txt` | 로컬 폰트와 라이선스 |
 | `GET` | `/health` | `200 {"status": "ok"}` |
+
+두 앱의 정적 응답은 `Vary: Authorization, Cookie`를 반환합니다. 익명 `/` 응답은
+`Cache-Control: public, max-age=0, s-maxage=60, must-revalidate`, 익명 정적 자산은
+`public, max-age=300, s-maxage=3600, must-revalidate`를 사용합니다. `Authorization`이나
+`Cookie`가 있는 정적 요청은 `no-store`입니다. `HEAD`는 `GET`과 같은 콘텐츠 형식과 길이를
+반환하며 본문은 보내지 않습니다. 없는 파일과 지원하지 않는 경로는 캐시하지 않습니다.
+
+CloudFront의 비공개 응답용 캐시 동작은 최소/기본/최대 TTL이 모두 0초입니다.
+인라인 `ForwardedValues`는 Authorization, 필요한 업로드/SSE 헤더, 쿠키, 쿼리 문자열을
+전달하고 사용자 Host는 전달하지 않습니다. 오리진도 `no-store`를 보내며, 비공개 경로의
+TTL을 양수로 바꾸면 안 됩니다.
+[CloudFront OAC 운영 절차](runbooks/cloudfront-oac.md)를 참고합니다.
 
 ### 컨텍스트
 
@@ -459,6 +488,9 @@ GET /api/procedures
 ## AI Document Studio API
 
 별도 서버인 `studio/web/server.js`가 `bma-office-studio` 스택의 `WebUrl`에서 동작합니다. 모든 `/api/*` 경로에 `Authorization: Bearer <APP_ACCESS_TOKEN>`이 필요하며, 인증 뒤 STS 계정을 확인합니다(`409 {"error":"AccountMismatch"}`). 요청과 작업의 전체 형식은 [studio/README.md](../studio/README.md#web-api)를 참고합니다.
+
+Studio도 위의 정적 GET/HEAD와 캐시 규칙을 사용하지만 `/static/report.css`는 제공하지 않습니다.
+업로드, 작업 스냅샷, SSE, 파일 다운로드, HTML 미리보기는 모두 `no-store`입니다.
 
 | Method and path | Request | Response |
 |-----------------|---------|----------|

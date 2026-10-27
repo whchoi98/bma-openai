@@ -32,6 +32,13 @@ The repository also contains **[AI Document Studio](#ai-document-studio)** (`stu
 office workers that turns a spreadsheet or notes into charts, diagrams, and editable PPTX/DOCX with
 `openai.gpt-6.1-sol`. It runs on its own Web Function, document-only Runtime, and stacks without AWS resource-query permissions.
 
+Both apps are served through CloudFront with Lambda Web OAC. Public HTML and
+static assets can be served from Seoul edge locations; API/SSE/private documents
+are not cached. Model work remains in us-east-1. See the
+[CloudFront runbook](docs/runbooks/cloudfront-oac.md), the
+[CloudFront deployment and verification record](docs/cloudfront-deployment.md), and current
+[Desk](docs/aws-deployment.md) / [Studio](docs/document-studio.md) addresses.
+
 ![Operations Desk main screen: account and region card, supported services, question form, and a completed answer](docs/images/en-overview.png)
 
 ## Features
@@ -41,6 +48,7 @@ office workers that turns a spreadsheet or notes into charts, diagrams, and edit
 - **Reports with account masking** — Render saved results as Markdown/HTML/DOCX/PPTX reports that show only the last 3 digits of the account ID, without re-querying the model or resources.
 - **Operations investigations** — Send follow-up questions to the same BMA session, recover the same run after reconnecting, and track four versioned operating procedures.
 - **Relationship and security views** — Connect only actually observed resources in relationship diagrams and classify security checks as met, needs review, or unverified.
+- **CloudFront front door** — Serve each app from its own CloudFront distribution with Lambda Web OAC; the regional origin accepts only that distribution (`IamAuth`), public HTML and static files are cached at Seoul edges, and API, SSE, uploads, and private downloads are never cached.
 - **AI Document Studio** — Turn one XLSX/CSV/TXT/MD file or pasted notes into charts, diagrams, and editable PPTX/DOCX in three styles, with real progress phases and a sandboxed preview; numbers come from code, not the model.
 
 ### Screenshots
@@ -99,7 +107,8 @@ model was called. Regenerate them with `.venv/bin/python scripts/capture_screens
 
 ```mermaid
 flowchart LR
-  U["Browser"] --> W["Lambda Web Function<br/>us-east-1"]
+  U["Browser"] --> CF["CloudFront / OAC"]
+  CF --> W["Lambda Web Function<br/>us-east-1 / IamAuth"]
   W --> B["BMA / Mantle<br/>openai.gpt-6-luna<br/>us-east-1"]
   B --> R["AgentCore Runtime V2<br/>us-east-1"]
   K["4 Skills"] --> R
@@ -107,7 +116,8 @@ flowchart LR
   M --> S["Seoul AWS control APIs<br/>ap-northeast-2"]
   S --> M
   B -->|"public text delta"| W
-  W -->|"SSE / Markdown"| U
+  W -->|"SSE / Markdown"| CF
+  CF --> U
   W --> O["Normalized app results<br/>S3 / us-east-1"]
 ```
 
@@ -243,10 +253,10 @@ bma-openai/
 ## Testing
 
 ```bash
-# Python tests (Stubber, MCP STDIO, IAM policy scope)
+# Python tests (Stubber, MCP STDIO, IAM policy scope, CloudFront templates and deployer)
 .venv/bin/python -m pytest
 
-# Node.js tests (BMA/Converse clients, HTTP/SSE, reports, investigations)
+# Node.js tests (BMA/Converse clients, HTTP/SSE, cache headers, reports, investigations)
 npm test --prefix web
 
 # Lint
@@ -258,7 +268,7 @@ bash tests/run-all.sh
 # AI Document Studio (parsing, rendering, MCP, IAM scope, HTTP/worker)
 .studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
 .venv/bin/python -m unittest studio.tests.test_infra
-node --test studio/tests/backend.test.js
+node --test studio/tests/backend.test.js studio/tests/cache-control.test.js
 ```
 
 ## API Documentation
@@ -380,7 +390,12 @@ aws cloudformation deploy --region "$APP_REGION" \
   --capabilities CAPABILITY_IAM --parameter-overrides file://artifacts/deploy-parameters.json
 ```
 
-Open the `WebUrl` output and enter the access key. The key stays only in browser memory.
+The application stack also creates the CloudFront distribution and OAC, and the Web Function endpoint defaults
+to `IamAuth`. Attach the exact distribution-to-endpoint resource policy and verify the edge path with the
+[CloudFront OAC runbook](docs/runbooks/cloudfront-oac.md) (`scripts/deploy_cloudfront.py prepare`, `cutover`, then
+`scripts/verify_cloudfront.py`). Then open the `WebUrl` output (the CloudFront address) and enter the access key;
+`OriginWebUrl` is not a browser entry point. The key stays only in browser memory. Static asset names are not
+content-hashed, so invalidate both distributions after each Web release as described in the runbook.
 This approach is for demos shared by trusted users; per-user accounts and tenant isolation are not implemented.
 When updating, use a new version for the immutable ECR tag and specify the new ZIP's S3 VersionId and image digest.
 Do not use `--disable-rollback` for Web Revision replacement updates.
@@ -404,6 +419,17 @@ the current local AWS credentials, which is distinct from verifying the deployed
 Verification evidence is saved in `artifacts/live-smoke.json` and in Markdown and HTML reports.
 The overall verification status and unexecuted items are in [Verification Results](docs/verification.md).
 
+Verify the CloudFront front doors of both apps without new model calls (one small Studio upload is made):
+
+```bash
+.venv/bin/python scripts/verify_cloudfront.py
+.venv/bin/python scripts/verify_cloudfront_browser.py
+```
+
+The checks cover direct-origin 403, preserved Bearer authentication, edge cache hits for public assets, uncached
+private responses, existing SSE results and downloads. The 2026-10-27 results and Seoul measurements are in the
+[CloudFront deployment record](docs/cloudfront-deployment.md).
+
 ## Related Documents
 
 - [BMA operations investigations: follow-up questions, reconnection, procedure catalog](docs/bma-investigations.md)
@@ -416,6 +442,7 @@ The overall verification status and unexecuted items are in [Verification Result
 - [Design](docs/design.md), [implementation plan](docs/implementation-plan.md)
 - [Official lifecycle source](runtime/UPSTREAM.md)
 - [AI Document Studio usage and verification (Korean)](docs/document-studio.md), [Studio specification](studio/README.md), [ADR-002](docs/decisions/ADR-002-separate-document-studio-stack.md)
+- [CloudFront deployment, verification, and Seoul measurements (Korean)](docs/cloudfront-deployment.md), [CloudFront OAC runbook](docs/runbooks/cloudfront-oac.md), [ADR-003](docs/decisions/ADR-003-cloudfront-oac-front-door.md)
 
 Official references: [BMA example repository](https://github.com/openai-on-aws/bedrock-managed-agents),
 [AWS BMA guide](https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-managed-agents-openai.html),
@@ -444,6 +471,12 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
 `openai.gpt-6.1-sol`로 차트, 다이어그램, 편집 가능한 PPTX/DOCX를 만듭니다. 별도 Web Function, 문서 전용 Runtime,
 독립 스택에서 실행되며 AWS 리소스 조회 권한이 없습니다.
 
+두 앱은 Lambda Web OAC를 연결한 CloudFront로 제공합니다. 공개 HTML과 정적 파일은
+서울 엣지에서 캐싱할 수 있고, API·SSE·개인 문서는 캐싱하지 않습니다.
+모델 처리는 계속 us-east-1에서 수행합니다. [운영 절차](docs/runbooks/cloudfront-oac.md),
+[CloudFront 배포·검증 기록](docs/cloudfront-deployment.md), 현재 [운영 데스크](docs/aws-deployment.md) /
+[문서 스튜디오](docs/document-studio.md) 주소를 참고합니다.
+
 ![Operations Desk 기본 화면: 계정과 리전 카드, 지원 서비스, 질문 입력, 완료된 답변](docs/images/ko-overview.png)
 
 ## 주요 기능
@@ -453,6 +486,7 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
 - **계정 마스킹 보고서** — 저장된 결과를 Markdown/HTML/DOCX/PPTX 보고서로 렌더링하며 계정 ID는 마지막 3자리만 표시합니다. 모델이나 리소스를 다시 조회하지 않습니다.
 - **운영 조사** — 같은 BMA 세션에 후속 질문을 보내고, 재접속 후 같은 실행을 복구하며, 버전이 있는 네 가지 운영 절차를 추적합니다.
 - **관계도와 보안 점검** — 관계도는 실제 관측된 리소스만 연결하고, 보안 구성 점검은 기준 충족, 확인 필요, 미확인을 구분합니다.
+- **CloudFront 접속 경로** — 앱마다 Lambda Web OAC를 연결한 CloudFront 배포로 제공합니다. 리전 오리진은 해당 배포의 요청만 받고(`IamAuth`), 공개 HTML과 정적 파일은 서울 엣지에서 캐시하며, API, SSE, 업로드, 개인 다운로드는 캐시하지 않습니다.
 - **AI Document Studio** — XLSX/CSV/TXT/MD 파일 하나나 붙여 넣은 메모로 차트, 다이어그램, 편집 가능한 PPTX/DOCX를 세 가지 스타일로 만듭니다. 실제 진행 단계와 안전한 미리보기를 제공하며, 숫자는 모델이 아니라 코드가 계산합니다.
 
 ### 화면
@@ -510,7 +544,8 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
 
 ```mermaid
 flowchart LR
-  U["Browser"] --> W["Lambda Web Function<br/>us-east-1"]
+  U["Browser"] --> CF["CloudFront / OAC"]
+  CF --> W["Lambda Web Function<br/>us-east-1 / IamAuth"]
   W --> B["BMA / Mantle<br/>openai.gpt-6-luna<br/>us-east-1"]
   B --> R["AgentCore Runtime V2<br/>us-east-1"]
   K["4 Skills"] --> R
@@ -518,7 +553,8 @@ flowchart LR
   M --> S["Seoul AWS control APIs<br/>ap-northeast-2"]
   S --> M
   B -->|"public text delta"| W
-  W -->|"SSE / Markdown"| U
+  W -->|"SSE / Markdown"| CF
+  CF --> U
   W --> O["Normalized app results<br/>S3 / us-east-1"]
 ```
 
@@ -653,10 +689,10 @@ bma-openai/
 ## 테스트
 
 ```bash
-# Python tests (Stubber, MCP STDIO, IAM policy scope)
+# Python tests (Stubber, MCP STDIO, IAM policy scope, CloudFront templates and deployer)
 .venv/bin/python -m pytest
 
-# Node.js tests (BMA/Converse clients, HTTP/SSE, reports, investigations)
+# Node.js tests (BMA/Converse clients, HTTP/SSE, cache headers, reports, investigations)
 npm test --prefix web
 
 # Lint
@@ -668,7 +704,7 @@ bash tests/run-all.sh
 # AI Document Studio (parsing, rendering, MCP, IAM scope, HTTP/worker)
 .studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
 .venv/bin/python -m unittest studio.tests.test_infra
-node --test studio/tests/backend.test.js
+node --test studio/tests/backend.test.js studio/tests/cache-control.test.js
 ```
 
 ## API 문서
@@ -788,7 +824,12 @@ aws cloudformation deploy --region "$APP_REGION" \
   --capabilities CAPABILITY_IAM --parameter-overrides file://artifacts/deploy-parameters.json
 ```
 
-`WebUrl` 출력으로 접속한 뒤 접속 키를 입력합니다. 키는 브라우저 메모리에만 유지합니다.
+애플리케이션 스택은 CloudFront 배포와 OAC도 만들며, Web Function 엔드포인트의 기본 인증 방식은 `IamAuth`입니다.
+[CloudFront OAC 운영 절차](docs/runbooks/cloudfront-oac.md)에 따라 정확한 배포-엔드포인트 리소스 정책을 연결하고
+엣지 경로를 검증합니다(`scripts/deploy_cloudfront.py prepare`, `cutover`, 이어서 `scripts/verify_cloudfront.py`).
+그다음 `WebUrl` 출력(CloudFront 주소)으로 접속해 접속 키를 입력합니다. `OriginWebUrl`은 브라우저 접속 주소가 아닙니다.
+키는 브라우저 메모리에만 유지합니다. 정적 자산 이름에 내용 해시가 없으므로 Web 배포 뒤에는 운영 절차에 따라 두 배포의
+캐시를 무효화합니다.
 이 방식은 신뢰된 사용자가 함께 쓰는 데모용이며 사용자별 계정·테넌트 격리는 구현하지 않았습니다.
 업데이트할 때는 ECR의 불변 태그에 새 버전을 사용하고 새 ZIP의 S3 VersionId와 이미지 digest를 지정합니다.
 Web Revision 교체 업데이트에는 `--disable-rollback`을 사용하지 않습니다.
@@ -811,6 +852,16 @@ Web Revision 교체 업데이트에는 `--disable-rollback`을 사용하지 않�
 검증 근거는 `artifacts/live-smoke.json`, Markdown·HTML 보고서에 저장합니다.
 전체 검증 상태와 미실행 항목은 [검증 결과](docs/verification.md)에 있습니다.
 
+두 앱의 CloudFront 접속 경로는 새 모델 호출 없이 검증합니다(Studio에 작은 파일 하나를 업로드합니다).
+
+```bash
+.venv/bin/python scripts/verify_cloudfront.py
+.venv/bin/python scripts/verify_cloudfront_browser.py
+```
+
+오리진 직접 접근 403, Bearer 인증 유지, 공개 자산의 엣지 캐시 적중, 비공개 응답의 캐시 제외, 기존 SSE 결과와 다운로드를
+확인합니다. 2026-10-27 결과와 서울 측정값은 [CloudFront 배포 기록](docs/cloudfront-deployment.md)에 있습니다.
+
 ## 관련 문서
 
 - [BMA 운영 조사: 후속 질문, 재접속, 절차 카탈로그](docs/bma-investigations.md)
@@ -823,6 +874,7 @@ Web Revision 교체 업데이트에는 `--disable-rollback`을 사용하지 않�
 - [설계](docs/design.md), [구현 계획](docs/implementation-plan.md)
 - [공식 lifecycle 출처](runtime/UPSTREAM.md)
 - [AI Document Studio 사용 안내와 검증](docs/document-studio.md), [Studio 명세](studio/README.md), [ADR-002](docs/decisions/ADR-002-separate-document-studio-stack.md)
+- [CloudFront 배포, 검증, 서울 측정](docs/cloudfront-deployment.md), [CloudFront OAC 운영 절차](docs/runbooks/cloudfront-oac.md), [ADR-003](docs/decisions/ADR-003-cloudfront-oac-front-door.md)
 
 공식 참조: [BMA 예제 저장소](https://github.com/openai-on-aws/bedrock-managed-agents),
 [AWS BMA 가이드](https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-managed-agents-openai.html),

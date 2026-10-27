@@ -16,7 +16,8 @@ Two CloudFormation templates define every AWS resource in `us-east-1`: `infra/bo
 | App stack | `infra/template.yaml` | Parameters for model, backend, code location, access token (`NoEcho`) and limits; `DeployInAppRegion` rule |
 | IAM roles | `infra/template.yaml` | `RuntimeRole` (Seoul reads), `SessionRole` (model and Runtime only), `WebRole` (BMA calls, app state), `WorkerRole` (BMA session API, limited state) |
 | Runtime | `infra/template.yaml` | `AWS::BedrockAgentCore::Runtime`, `PlatformVersion: V2`, `NetworkMode: PUBLIC`, `ProtocolConfiguration: HTTP`, 900 s idle timeout |
-| Web Function | `infra/template.yaml` | `AWS::Lambda::WebFunction`, `WebFunctionRevision` (`nodejs24.x`, S3 object with `VersionId`, 600 s timeout), `WebFunctionEndpoint` (`ApplicationManaged` auth, 2 environments, 100 rps) |
+| Web Function | `infra/template.yaml` | `AWS::Lambda::WebFunction`, `WebFunctionRevision` (`nodejs24.x`, S3 object with `VersionId`, 600 s timeout), `WebFunctionEndpoint` (`WebEndpointAuthType`, default and deployed `IamAuth`; 2 environments, 100 rps) |
+| CloudFront front door | `infra/template.yaml`, `studio/infra/template.yaml` | `AWS::CloudFront::Distribution` (`PriceClass_All`, inline `ForwardedValues`: public `/` and `/static/*`, TTL 0 elsewhere) and `AWS::CloudFront::OriginAccessControl` (`lambda`, `sigv4`, `always-amz-auth`); the endpoint resource policy is applied by `scripts/deploy_cloudfront.py`, outside CloudFormation |
 | Investigation worker | `infra/template.yaml` | `AWS::Lambda::Function` (`nodejs24.x`, 512 MB, 360 s, reserved concurrency 2) and `EventInvokeConfig` (1 retry, 600 s max age) |
 | App state and logs | `infra/template.yaml` | `AppState` bucket (Retain, versioned, 7-day expiry on `runs/`, `history/`, `investigations/`), TLS-only policy, `WebLogs` and `WorkerLogs` (7-day retention) |
 | Parameter file writer | `scripts/deployment_parameters.py` | Writes `artifacts/deploy-parameters.json` with file mode 0600 without printing secrets |
@@ -57,7 +58,8 @@ Two CloudFormation templates define every AWS resource in `us-east-1`: `infra/bo
 | App stack | `infra/template.yaml` | 모델, 백엔드, 코드 위치, 접속 키(`NoEcho`), 한도 파라미터와 `DeployInAppRegion` 규칙 |
 | IAM roles | `infra/template.yaml` | `RuntimeRole`(서울 조회), `SessionRole`(모델과 Runtime만), `WebRole`(BMA 호출, 앱 상태), `WorkerRole`(BMA 세션 API, 제한된 상태) |
 | Runtime | `infra/template.yaml` | `AWS::BedrockAgentCore::Runtime`, `PlatformVersion: V2`, `NetworkMode: PUBLIC`, `ProtocolConfiguration: HTTP`, 유휴 timeout 900초 |
-| Web Function | `infra/template.yaml` | `AWS::Lambda::WebFunction`, `WebFunctionRevision`(`nodejs24.x`, `VersionId`를 지정한 S3 객체, timeout 600초), `WebFunctionEndpoint`(`ApplicationManaged` 인증, 환경 2개, 100 rps) |
+| Web Function | `infra/template.yaml` | `AWS::Lambda::WebFunction`, `WebFunctionRevision`(`nodejs24.x`, `VersionId`를 지정한 S3 객체, timeout 600초), `WebFunctionEndpoint`(`WebEndpointAuthType`, 기본값과 현재 배포 모두 `IamAuth`, 환경 2개, 100 rps) |
+| CloudFront front door | `infra/template.yaml`, `studio/infra/template.yaml` | `AWS::CloudFront::Distribution`(`PriceClass_All`, 인라인 `ForwardedValues`: 공개 `/`와 `/static/*`, 나머지 TTL 0)과 `AWS::CloudFront::OriginAccessControl`(`lambda`, `sigv4`, `always-amz-auth`), 엔드포인트 리소스 정책은 CloudFormation 밖에서 `scripts/deploy_cloudfront.py`가 적용 |
 | Investigation worker | `infra/template.yaml` | `AWS::Lambda::Function`(`nodejs24.x`, 512 MB, 360초, 예약 동시성 2)과 `EventInvokeConfig`(재시도 1회, 최대 600초) |
 | App state and logs | `infra/template.yaml` | `AppState` 버킷(Retain, 버전 관리, `runs/`, `history/`, `investigations/` 7일 만료), TLS 전용 정책, `WebLogs`와 `WorkerLogs`(7일 보존) |
 | Parameter file writer | `scripts/deployment_parameters.py` | 비밀 값을 출력하지 않고 파일 모드 0600으로 `artifacts/deploy-parameters.json` 작성 |

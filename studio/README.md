@@ -7,6 +7,12 @@ This is a separate Lambda Web Function and document Runtime. Existing AWS
 Operations Desk resources and resource-query permissions are not expanded.
 App, BMA and file processing run in us-east-1. The deployed document model is `openai.gpt-6.1-sol`; Luna and Terra are optional deployment candidates, not automatic fallbacks.
 
+Public access uses CloudFront and a Lambda Web OAC. The regional origin uses
+`IamAuth` and an exact distribution-to-endpoint resource policy. HTML and static
+assets can be cached at the edge; API requests, SSE and private downloads have
+zero CloudFront TTL and `Cache-Control: no-store`. Deployment and invalidation:
+[CloudFront runbook](../docs/runbooks/cloudfront-oac.md).
+
 ## Product requirements
 
 - Three selectable styles: `business`, `aws-desk`, `presentation`.

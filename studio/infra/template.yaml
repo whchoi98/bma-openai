@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: AI Document Studio - isolated Web Function, bounded worker, and document Runtime V2 (stack bma-office-studio).
 Parameters:
+  WebEndpointAuthType:
+    Type: String
+    Default: IamAuth
+    AllowedValues: [ApplicationManaged, IamAuth]
+    Description: Use ApplicationManaged only during staged CloudFront creation; final OAC origins use IamAuth.
   AppRegion:
     Type: String
     Default: us-east-1
@@ -466,15 +471,103 @@ Resources:
       FunctionName: !Ref WebFunction
       EndpointName: studio
       EndpointType: HomeRegion
-      AuthType: ApplicationManaged
+      AuthType: !Ref WebEndpointAuthType
       RevisionWeights:
         - RevisionId: !GetAtt WebRevision.RevisionId
           Weight: 100
       ScalingConfig: {MaxEnvironments: 2}
       ThrottleConfig: {RateLimit: 100}
+  WebOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-web"
+        Description: Regional Lambda Web origin; preserve application Authorization.
+        OriginAccessControlOriginType: lambda
+        SigningProtocol: sigv4
+        SigningBehavior: always-amz-auth
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Metadata:
+      ForwardingChoice: Inline ForwardedValues avoids the exhausted account custom-cache-policy quota. Authorization is explicitly forwarded without the viewer Host; private behaviors have zero maximum TTL.
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${AWS::StackName} regional Web Function for Seoul and global viewers"
+        PriceClass: PriceClass_All
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        ViewerCertificate: {CloudFrontDefaultCertificate: true}
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebEndpoint.DomainName
+            OriginAccessControlId: !GetAtt WebOriginAccessControl.Id
+            ConnectionAttempts: 2
+            ConnectionTimeout: 10
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+              OriginReadTimeout: 60
+              OriginKeepaliveTimeout: 5
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD]
+          Compress: false
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 0
+          ForwardedValues:
+            QueryString: true
+            Cookies: {Forward: all}
+            Headers: [Authorization, Content-Type, X-File-Name, Last-Event-ID, Origin, Accept]
+        CacheBehaviors:
+          - PathPattern: /
+            TargetOriginId: web
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 3600
+            ForwardedValues:
+              QueryString: true
+              Cookies: {Forward: all}
+              Headers: [Authorization]
+          - PathPattern: /static/*
+            TargetOriginId: web
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 3600
+            ForwardedValues:
+              QueryString: true
+              Cookies: {Forward: all}
+              Headers: [Authorization]
+        CustomErrorResponses:
+          - {ErrorCode: 403, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 404, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 405, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 500, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 502, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 503, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 504, ErrorCachingMinTTL: 0}
 Outputs:
   WebUrl:
+    Value: !Sub "https://${WebDistribution.DomainName}"
+  OriginWebUrl:
     Value: !Sub "https://${WebEndpoint.DomainName}"
+  DistributionId:
+    Value: !Ref WebDistribution
+  OriginAccessControlId:
+    Value: !GetAtt WebOriginAccessControl.Id
   RuntimeArn:
     Value: !GetAtt Runtime.AgentRuntimeArn
   RuntimeRoleArn:

@@ -13,6 +13,7 @@ charts, diagrams and PPTX/DOCX with its own Web Function, document-only Runtime 
 - **Python 3.12** — `boto3` 1.43.118, `mcp` 1.30.0, `fastapi` 0.162.0, `uvicorn`, `httpx`; dev: `pytest` 9.1.1, `ruff` 0.17.2, `cfn-lint`
 - **Node.js 24** (ESM) — AWS SDK v3 (`client-bedrock-agentcore`, `client-bedrock-runtime`, `client-lambda`, `client-s3`, `client-sts`), React 19.3.1, `react-markdown` 10.1.0 + `remark-gfm` 4.0.1, `docx`, `pptxgenjs`, `esbuild`
 - **AWS** — Lambda Web Functions (Node.js 24 only), AgentCore Runtime V2 (ARM64 container, HTTP protocol), BMA/Mantle, S3, ECR, IAM, CloudFormation
+- **Web delivery** — Each app owns a CloudFront distribution with regional Lambda Web OAC (`sigv4`, `always-amz-auth`) and an `IamAuth` origin. Public entry point is `WebUrl`; `OriginWebUrl` is private.
 - **Runtime image** — `python:3.12-slim`, Codex 0.164.0 Linux ARM64 binary, official BMA lifecycle server (`@aws/agentcore` 1.0.0)
 - **Studio** (`studio/requirements.txt`, `.studio-venv`) — `openpyxl` 3.1.5, `python-pptx` 1.0.2, `python-docx` 1.2.0, `matplotlib` 3.11.2, `Pillow`, `defusedxml`; reuses `web/node_modules`
 
@@ -45,6 +46,7 @@ artifacts/      - Local build/verification evidence (gitignored; contains deploy
 - **Privacy rules:** UI and all report formats show only the last 3 digits of account IDs (STS comparisons and S3 evidence keep 12 digits). Never store or display reasoning, analysis messages or raw `command_execution` output.
 - **No AI attribution in git history.** Never add `Co-Authored-By` trailers or "Generated with" lines to commits or PRs. Enforced by `attribution` in `.claude/settings.json` and the `commit-msg` hook from `scripts/install-hooks.sh`.
 - **Pinned versions.** Python deps use `==`, `web/package.json` uses exact versions. Keep it that way.
+- **CloudFront boundary.** Only `/` and `/static/*` cache public content. All other paths use TTL 0 and origin `no-store`. Preserve Authorization and upload headers, never forward viewer Host. Follow `docs/runbooks/cloudfront-oac.md` for staged deployment, scoped resource policies and cache invalidation.
 - **Style.** Python: ruff `E4,E7,E9,F,I`, line length 110. JS: ESM, `node:test`. Korean user-facing docs use 경어체 or the existing 평서체 of the file being edited.
 
 ## Key Commands
@@ -77,6 +79,9 @@ docker build --platform linux/arm64 -f runtime/Dockerfile -t bma-seoul-runtime:0
 ```
 Deployment: follow `docs/runbooks/deploy-production.md`. Every deploy uses a new immutable ECR tag, the new ZIP's S3 VersionId and the image digest; never `--disable-rollback` on Web Revision updates.
 Studio deploys separately with `studio/scripts/deploy.py`: follow `docs/runbooks/deploy-document-studio.md`.
+CloudFront/OAC for both apps: `scripts/deploy_cloudfront.py prepare|cutover|inspect --app desk|studio|both`, then
+`scripts/verify_cloudfront.py`; invalidate both distributions after every Web release (`docs/runbooks/cloudfront-oac.md`).
+Current CloudFront values and verification: `docs/cloudfront-deployment.md`.
 
 ## Error Handling
 - Tool results always carry `status` (`ok`, `empty`, `access_denied`, `unsupported_service`, `api_error`, `partial`, `account_mismatch`, `invalid_input`), `truncated`, `pagination_complete` and `errors`. Return these instead of raising, and never forward raw AWS error messages.
@@ -104,6 +109,7 @@ After exiting Plan mode (`/plan`), before starting implementation:
 - Infrastructure changed (`infra/*.yaml`, `runtime/Dockerfile`) -> Update `docs/architecture.md` Infrastructure section and `docs/runbooks/deploy-production.md`
 - Live deployment changed -> Update `docs/aws-deployment.md` with the verified values
 - `studio/` changed -> Update `studio/CLAUDE.md`, `studio/README.md` (spec/API) and `docs/document-studio.md`; `web/bma.js` changes also affect Studio
+- CloudFront behaviors/OAC in either template or static cache headers in either `server.js` changed -> Update `docs/runbooks/cloudfront-oac.md`, the static-file section of `docs/api-reference.md` and both cache-control tests
 
 ### ADR Numbering
 Find the highest number in `docs/decisions/ADR-*.md` and increment by 1.

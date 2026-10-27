@@ -16,7 +16,8 @@ The security layer keeps the demo read-only, single-account and region-bounded. 
 | Account and region enforcement | `aws_inventory/engine.py` | `client()` pins STS to `APP_REGION` and resource clients to `TARGET_REGION`; `_verify_account()` stops with `account_mismatch` before resource calls |
 | Field allow-lists | `aws_inventory/normalize.py` | Per-service normalizers that drop Lambda environment variables, DB endpoints and usernames, EC2 tags and private IPs, raw error text |
 | API authentication | `web/server.js`, `webapp/main.py` | `Authorization: Bearer <APP_ACCESS_TOKEN>` on `/api/*` with `timingSafeEqual` / `hmac.compare_digest`; 16 KiB request body cap |
-| Response headers | `web/server.js` | `no-store`, `nosniff`, `no-referrer`, CSP `default-src 'self'` with `frame-ancestors 'none'` |
+| Response headers | `web/server.js` | `no-store` (public `Cache-Control` only on anonymous static files), `nosniff`, `no-referrer`, CSP `default-src 'self'` with `frame-ancestors 'none'` |
+| Origin access | `infra/template.yaml`, `scripts/deploy_cloudfront.py` | Endpoint `IamAuth`; only the app's own CloudFront distribution (OAC `sigv4`, exact `aws:SourceArn`) may invoke it; direct origin requests return 403 even with a valid key |
 | IAM role separation | `infra/template.yaml` | Runtime role: Seoul reads only; Session role: one model plus designated Runtime; Web role: BMA calls, PassRole to one role, app state; Worker role: BMA session API and limited state |
 | Policy tests | `tests/test_iam.py`, `tests/test_investigation_iam.py` | Fail on mutations, unimplemented operations, wider PassRole or global inference in the BMA path |
 | Secret handling | `scripts/deployment_parameters.py`, `.gitignore`, `.env.example` | 0600 parameter file, `NoEcho` token parameter, `artifacts/` and `.env` git-ignored, placeholders only in `.env.example` |
@@ -57,7 +58,8 @@ The security layer keeps the demo read-only, single-account and region-bounded. 
 | Account and region enforcement | `aws_inventory/engine.py` | `client()`가 STS는 `APP_REGION`, 리소스 클라이언트는 `TARGET_REGION`으로 고정하고 `_verify_account()`가 리소스 호출 전에 `account_mismatch`로 중단 |
 | Field allow-lists | `aws_inventory/normalize.py` | Lambda 환경 변수, DB 접속 주소와 사용자명, EC2 태그와 사설 IP, 원문 오류를 제거하는 서비스별 정규화 함수 |
 | API authentication | `web/server.js`, `webapp/main.py` | `/api/*`에 `Authorization: Bearer <APP_ACCESS_TOKEN>`을 요구하고 `timingSafeEqual` / `hmac.compare_digest`로 비교, 요청 본문 16 KiB 제한 |
-| Response headers | `web/server.js` | `no-store`, `nosniff`, `no-referrer`, `frame-ancestors 'none'`을 포함한 CSP `default-src 'self'` |
+| Response headers | `web/server.js` | `no-store`(익명 정적 파일만 공개 `Cache-Control`), `nosniff`, `no-referrer`, `frame-ancestors 'none'`을 포함한 CSP `default-src 'self'` |
+| Origin access | `infra/template.yaml`, `scripts/deploy_cloudfront.py` | 엔드포인트 `IamAuth`, 해당 앱의 CloudFront 배포(OAC `sigv4`, 정확한 `aws:SourceArn`)만 호출 가능, 올바른 키가 있어도 오리진 직접 요청은 403 |
 | IAM role separation | `infra/template.yaml` | Runtime 역할: 서울 조회만, Session 역할: 단일 모델과 지정 Runtime, Web 역할: BMA 호출·단일 역할 PassRole·앱 상태, Worker 역할: BMA 세션 API와 제한된 상태 |
 | Policy tests | `tests/test_iam.py`, `tests/test_investigation_iam.py` | 변경 작업, 구현하지 않은 작업, 더 넓은 PassRole, BMA 경로의 글로벌 추론 권한이 생기면 실패 |
 | Secret handling | `scripts/deployment_parameters.py`, `.gitignore`, `.env.example` | 0600 파라미터 파일, `NoEcho` 토큰 파라미터, `artifacts/`와 `.env`의 git 제외, `.env.example`에는 빈 값만 |
