@@ -13,6 +13,7 @@ shell scripts (`setup.sh`, `install-hooks.sh`). Evidence is written to `artifact
 | CloudFront/OAC deploy | `deploy_cloudfront.py prepare\|cutover\|inspect --app desk\|studio\|both` | STS, code S3 uploads, scoped Change Sets, exact Web Function resource policies |
 | CloudFront verify | `verify_cloudfront.py` (`--app desk\|studio` optional) | read-only configuration/existing results, one tiny Studio upload; no new model generation |
 | Live verify | `live_smoke.py`, `verify_deployed.py`, `verify_deployed_browser.py`, `verify_extended_deployed.py`, `verify_extended_browser.py`, `verify_investigations.py`, `verify_investigations_browser.py` | bounded live queries + model calls |
+| Live capture | `capture_live_screenshots.py` (README `*-live-*.png` from both CloudFront URLs; Desk overview only, existing Studio jobs) | GET-only browser session with the real access key; no queries, uploads or model calls |
 | Retire | `retire_oregon_deployment.py` | deletes recorded Oregon resources |
 | Harness | `setup.sh`, `install-hooks.sh` | none |
 

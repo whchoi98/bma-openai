@@ -42,10 +42,10 @@ TEXT = {
 }
 
 
-def shot(page, name, locator=None, full=False):
+def shot(page, name, locator=None, full=False, mask=()):
     """Save a viewport, element (height-capped) or full-page screenshot under docs/images."""
     path = OUTPUT / f"{name}.png"
-    options = {"path": str(path), "animations": "disabled"}
+    options = {"path": str(path), "animations": "disabled", "mask": list(mask), "mask_color": "#dfe5ef"}
     if locator is not None:
         locator.scroll_into_view_if_needed()
         box = locator.bounding_box()

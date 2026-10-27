@@ -39,7 +39,8 @@ are not cached. Model work remains in us-east-1. See the
 [CloudFront deployment and verification record](docs/cloudfront-deployment.md), and current
 [Desk](docs/aws-deployment.md) / [Studio](docs/document-studio.md) addresses.
 
-![Operations Desk main screen: account and region card, supported services, question form, and a completed answer](docs/images/en-overview.png)
+![Operations Desk live site through CloudFront after connecting: masked account ID, regions, supported services, and the question form](docs/images/en-live-desk.png)
+<sub>Live site at its CloudFront address right after connecting; no question was run. Answers appear below in sample mode because saved live answers contain real resource identifiers.</sub>
 
 ## Features
 
@@ -74,7 +75,8 @@ and no real resource appears. Regenerate them with `.venv/bin/python scripts/cap
     <td width="50%" valign="top"><img src="docs/images/en-mobile.png" alt="Mobile layout at 390 pixels wide"><br><sub><b>Mobile layout</b> — 390 px viewport without horizontal scrolling</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/en-dark.png" alt="Dark mode with an operations investigation result"><br><sub><b>Dark mode and English UI</b> — theme and language switch from the top bar</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/en-overview.png" alt="Sample mode overview with the account and region card, supported services, and a completed answer"><br><sub><b>Overview with an answer</b> — account and region card, supported services, and a completed answer in sample mode</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/en-dark.png" alt="Dark mode with an operations investigation result"><br><sub><b>Dark mode and English UI</b> — theme and language switch from the top bar</sub></td>
   </tr>
 </table>
 
@@ -88,20 +90,38 @@ render PNG/SVG, editable PPTX/DOCX, and an HTML content preview. Downloads are a
 expire after 7 days. Usage, limits, and live verification (Korean): [document-studio.md](docs/document-studio.md);
 deployment: [runbook](docs/runbooks/deploy-document-studio.md).
 
-The screenshots come from a local fixture: the real Studio UI and HTTP routes serve files rendered by the
-real Python renderers from [`studio/examples/`](studio/examples/). Only the answer text is fixed, and no AWS API or
-model was called. Regenerate them with `.venv/bin/python scripts/capture_screenshots.py studio`.
+The result, brief, and diagram screens were captured from the live CloudFront site with
+`scripts/capture_live_screenshots.py`. They show existing jobs that `openai.gpt-6.1-sol` produced from the Korean demo
+inputs, so the job content stays Korean in the English UI; no new generation, upload, or query was sent. The progress
+panel comes from a local fixture, because capturing it live would need a new model run.
 
 <table>
   <tr>
-    <td colspan="3"><img src="docs/images/en-studio-result.png" alt="AI Document Studio with a finished job: answer summary, five files, and a document preview with a monthly revenue chart"><br><sub><b>Finished documents</b> — chart PNG/SVG, PPTX, DOCX, and the HTML content preview with the chart aggregated from the uploaded spreadsheet</sub></td>
+    <td colspan="3"><img src="docs/images/en-live-studio-result.png" alt="Live AI Document Studio with an existing finished job: answer summary, five files, and a document preview with a monthly revenue chart"><br><sub><b>Finished documents (live)</b> — chart PNG/SVG, PPTX, DOCX, and the HTML content preview with the chart aggregated from the uploaded spreadsheet</sub></td>
   </tr>
   <tr>
-    <td width="33%" valign="top"><img src="docs/images/en-studio-brief.png" alt="Brief form with an uploaded spreadsheet, request, output choices, and document styles"><br><sub><b>Brief</b> — one file or notes, a plain-language request, outputs, and one of three styles</sub></td>
-    <td width="33%" valign="top"><img src="docs/images/en-studio-progress.png" alt="Progress panel with completed phases, current phase, and elapsed time"><br><sub><b>Progress</b> — real job phases and elapsed time, no invented percentages</sub></td>
-    <td width="33%" valign="top"><img src="docs/images/en-studio-diagram.png" alt="Earlier job showing a workflow diagram file in the AWS Operations Desk style"><br><sub><b>Diagram output</b> — notes turned into a workflow diagram in the AWS Operations Desk style</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/en-live-studio-brief.png" alt="Live brief form with a chosen spreadsheet, request, output choices, and document styles"><br><sub><b>Brief (live)</b> — one file or notes, a plain-language request, outputs, and one of three styles</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/en-studio-progress.png" alt="Progress panel with completed phases, current phase, and elapsed time"><br><sub><b>Progress (local fixture)</b> — real job phases and elapsed time, no invented percentages</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/en-live-studio-diagram.png" alt="Live existing job showing a workflow diagram file in the AWS Operations Desk style"><br><sub><b>Diagram output (live)</b> — notes turned into a workflow diagram in the AWS Operations Desk style</sub></td>
   </tr>
 </table>
+
+<details>
+<summary>Offline fixture captures (no AWS API or model calls)</summary>
+
+The local fixture serves the real Studio UI and HTTP routes with files rendered by the real Python renderers from
+[`studio/examples/`](studio/examples/); only the answer text is fixed. Regenerate these and the progress panel with
+`.venv/bin/python scripts/capture_screenshots.py studio`. Refresh the live captures with
+`.venv/bin/python scripts/capture_live_screenshots.py` (it reads the real access key; ask the account owner first).
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><img src="docs/images/en-studio-result.png" alt="Fixture result with five files and a document preview with a monthly revenue chart"><br><sub><b>Finished documents</b> — English demo spreadsheet</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/en-studio-brief.png" alt="Fixture brief form with an uploaded spreadsheet, request, output choices, and document styles"><br><sub><b>Brief</b> — English request and outputs</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/en-studio-diagram.png" alt="Fixture job showing a workflow diagram file in the AWS Operations Desk style"><br><sub><b>Diagram output</b> — English demo notes</sub></td>
+  </tr>
+</table>
+</details>
 
 ## Architecture
 
@@ -477,7 +497,8 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
 [CloudFront 배포·검증 기록](docs/cloudfront-deployment.md), 현재 [운영 데스크](docs/aws-deployment.md) /
 [문서 스튜디오](docs/document-studio.md) 주소를 참고합니다.
 
-![Operations Desk 기본 화면: 계정과 리전 카드, 지원 서비스, 질문 입력, 완료된 답변](docs/images/ko-overview.png)
+![CloudFront로 접속해 연결한 Operations Desk 실제 화면: 마스킹된 계정 ID, 리전, 지원 서비스, 질문 입력](docs/images/ko-live-desk.png)
+<sub>CloudFront 주소로 접속해 연결한 직후의 실제 화면이며 질문은 실행하지 않았습니다. 저장된 실제 답변에는 실제 리소스 식별자가 있으므로 답변 화면은 아래 샘플 모드 캡처로 보여 줍니다.</sub>
 
 ## 주요 기능
 
@@ -512,7 +533,8 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
     <td width="50%" valign="top"><img src="docs/images/ko-mobile.png" alt="너비 390픽셀 모바일 화면"><br><sub><b>모바일 화면</b> — 390px 화면에서 가로 스크롤 없이 표시합니다</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/ko-dark.png" alt="운영 조사 결과가 표시된 다크 모드 화면"><br><sub><b>다크 모드와 한국어 화면</b> — 상단 막대에서 테마와 언어를 전환합니다</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/ko-overview.png" alt="계정과 리전 카드, 지원 서비스, 완료된 답변이 있는 샘플 모드 기본 화면"><br><sub><b>답변이 있는 기본 화면</b> — 샘플 모드의 계정과 리전 카드, 지원 서비스, 완료된 답변</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/ko-dark.png" alt="운영 조사 결과가 표시된 다크 모드 화면"><br><sub><b>다크 모드와 한국어 화면</b> — 상단 막대에서 테마와 언어를 전환합니다</sub></td>
   </tr>
 </table>
 
@@ -525,20 +547,37 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
 파일은 7일 뒤 만료됩니다. 사용법, 한도, 실제 검증은 [document-studio.md](docs/document-studio.md), 배포는
 [런북](docs/runbooks/deploy-document-studio.md)을 참고합니다.
 
-화면은 로컬 fixture에서 캡처했습니다. 실제 Studio 화면과 HTTP 경로가 [`studio/examples/`](studio/examples/)의 자료로
-실제 Python 렌더러가 만든 파일을 제공하며, 답변 문장만 고정 예시입니다. AWS API와 모델은 호출하지 않았습니다.
-`.venv/bin/python scripts/capture_screenshots.py studio`로 다시 만들 수 있습니다.
+결과, 요청 입력, 다이어그램 화면은 `scripts/capture_live_screenshots.py`로 실제 CloudFront 사이트에서 캡처했습니다.
+`openai.gpt-6.1-sol`이 데모 입력으로 만든 기존 작업을 보여 주며, 새 생성, 업로드, 조회 요청은 보내지 않았습니다.
+진행 화면은 실제로 캡처하려면 새 모델 실행이 필요하므로 로컬 fixture 화면을 사용합니다.
 
 <table>
   <tr>
-    <td colspan="3"><img src="docs/images/ko-studio-result.png" alt="완료된 작업: 답변 요약, 파일 5개, 월별 매출 차트가 들어간 문서 미리보기"><br><sub><b>완성된 문서</b> — 차트 PNG/SVG, PPTX, DOCX, 그리고 올린 엑셀로 집계한 차트가 들어간 HTML 내용 미리보기</sub></td>
+    <td colspan="3"><img src="docs/images/ko-live-studio-result.png" alt="실제 AI Document Studio의 기존 완료 작업: 답변 요약, 파일 5개, 월별 매출 차트가 들어간 문서 미리보기"><br><sub><b>완성된 문서(실제 화면)</b> — 차트 PNG/SVG, PPTX, DOCX, 그리고 올린 엑셀로 집계한 차트가 들어간 HTML 내용 미리보기</sub></td>
   </tr>
   <tr>
-    <td width="33%" valign="top"><img src="docs/images/ko-studio-brief.png" alt="엑셀 파일, 요청, 출력 선택, 문서 스타일이 있는 입력 화면"><br><sub><b>요청 입력</b> — 파일 하나나 메모, 자연어 요청, 출력 형식, 세 가지 스타일</sub></td>
-    <td width="33%" valign="top"><img src="docs/images/ko-studio-progress.png" alt="완료한 단계, 현재 단계, 경과 시간이 있는 진행 화면"><br><sub><b>진행 상황</b> — 실제 작업 단계와 경과 시간, 임의 백분율 없음</sub></td>
-    <td width="33%" valign="top"><img src="docs/images/ko-studio-diagram.png" alt="AWS 운영 데스크 스타일의 업무 흐름도 파일을 보여 주는 이전 작업"><br><sub><b>다이어그램 출력</b> — 메모를 AWS 운영 데스크 스타일의 업무 흐름도로 정리</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/ko-live-studio-brief.png" alt="엑셀 파일을 고르고 요청, 출력 선택, 문서 스타일을 지정한 실제 입력 화면"><br><sub><b>요청 입력(실제 화면)</b> — 파일 하나나 메모, 자연어 요청, 출력 형식, 세 가지 스타일</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/ko-studio-progress.png" alt="완료한 단계, 현재 단계, 경과 시간이 있는 진행 화면"><br><sub><b>진행 상황(로컬 fixture)</b> — 실제 작업 단계와 경과 시간, 임의 백분율 없음</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/ko-live-studio-diagram.png" alt="AWS 운영 데스크 스타일의 업무 흐름도 파일을 보여 주는 실제 기존 작업"><br><sub><b>다이어그램 출력(실제 화면)</b> — 메모를 AWS 운영 데스크 스타일의 업무 흐름도로 정리</sub></td>
   </tr>
 </table>
+
+<details>
+<summary>오프라인 fixture 화면(AWS API와 모델 호출 없음)</summary>
+
+로컬 fixture는 [`studio/examples/`](studio/examples/)의 자료로 실제 Python 렌더러가 만든 파일을 실제 Studio 화면과
+HTTP 경로로 제공하며, 답변 문장만 고정 예시입니다. 이 화면과 진행 화면은
+`.venv/bin/python scripts/capture_screenshots.py studio`로 다시 만듭니다. 실제 화면은
+`.venv/bin/python scripts/capture_live_screenshots.py`로 갱신합니다(실제 이용 키를 읽으므로 계정 소유자에게 먼저 확인합니다).
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><img src="docs/images/ko-studio-result.png" alt="파일 5개와 월별 매출 차트가 들어간 문서 미리보기가 있는 fixture 결과"><br><sub><b>완성된 문서</b> — 데모 엑셀</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/ko-studio-brief.png" alt="엑셀 파일, 요청, 출력 선택, 문서 스타일이 있는 fixture 입력 화면"><br><sub><b>요청 입력</b> — 요청과 출력 형식</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/ko-studio-diagram.png" alt="AWS 운영 데스크 스타일의 업무 흐름도 파일을 보여 주는 fixture 작업"><br><sub><b>다이어그램 출력</b> — 데모 메모</sub></td>
+  </tr>
+</table>
+</details>
 
 ## 아키텍처
 

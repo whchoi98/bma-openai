@@ -127,6 +127,9 @@ BMA 세션 보관은 S3 파일 만료와 별도다. 모델 추론, Lambda, Runti
 ## 로컬 테스트와 화면
 
 AWS와 모델을 호출하지 않는 테스트 명령과 가상 환경 준비는 [`studio/CLAUDE.md`](../studio/CLAUDE.md)에 있다.
-README 화면은 `.venv/bin/python scripts/capture_screenshots.py studio`로 다시 만든다.
-실제 Studio 서버 경로와 Python 렌더러가 `studio/examples/`로 만든 파일을 사용하고, 답변 문장만 고정 예시다.
+README의 결과, 요청 입력, 다이어그램 화면은 CloudFront 주소의 실제 화면으로
+`.venv/bin/python scripts/capture_live_screenshots.py`가 만든다. 기존 완료 작업만 열고 GET 외의 API 요청은 모두 막으므로
+새 생성, 업로드, 모델 호출은 없다. 실제 이용 키를 읽으므로 계정 소유자에게 먼저 확인한다.
+진행 화면과 오프라인 화면은 `.venv/bin/python scripts/capture_screenshots.py studio`로 다시 만든다.
+이 경우 실제 Studio 서버 경로와 Python 렌더러가 `studio/examples/`로 만든 파일을 사용하고, 답변 문장만 고정 예시다.
 배포와 갱신 절차는 [Document Studio 배포 runbook](runbooks/deploy-document-studio.md)을 따른다.

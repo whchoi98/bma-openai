@@ -76,6 +76,7 @@ docker build --platform linux/arm64 -f runtime/Dockerfile -t bma-seoul-runtime:0
 # Live AWS (ask the user first: real account, real cost)
 .venv/bin/python scripts/preflight.py --list-models
 .venv/bin/python scripts/live_smoke.py
+.venv/bin/python scripts/capture_live_screenshots.py   # README live images via CloudFront (GET only, real key)
 ```
 Deployment: follow `docs/runbooks/deploy-production.md`. Every deploy uses a new immutable ECR tag, the new ZIP's S3 VersionId and the image digest; never `--disable-rollback` on Web Revision updates.
 Studio deploys separately with `studio/scripts/deploy.py`: follow `docs/runbooks/deploy-document-studio.md`.
