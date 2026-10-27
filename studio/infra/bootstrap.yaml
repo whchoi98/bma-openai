@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AI Document Studio build artifacts in us-east-1 (stack bma-office-build).
+Parameters:
+  RuntimeRepositoryName:
+    Type: String
+    Default: bma-office-runtime
+    AllowedValues: [bma-office-runtime]
+  WebFunctionName:
+    Type: String
+    Default: bma-office-studio-web
+    AllowedValues: [bma-office-studio-web]
+  WorkerFunctionName:
+    Type: String
+    Default: bma-office-studio-worker
+    AllowedValues: [bma-office-studio-worker]
+Rules:
+  VirginiaOnly:
+    Assertions:
+      - Assert: !Equals [!Ref "AWS::Region", us-east-1]
+        AssertDescription: Deploy Studio build artifacts to us-east-1.
+Resources:
+  RuntimeRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: !Ref RuntimeRepositoryName
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration: {ScanOnPush: true}
+      EncryptionConfiguration: {EncryptionType: AES256}
+  CodeBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration: {Status: Enabled}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+  CodeBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CodeBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RequireTls
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt CodeBucket.Arn, !Sub "${CodeBucket.Arn}/*"]
+            Condition: {Bool: {"aws:SecureTransport": false}}
+          - Sid: DesignatedWebRevisions
+            Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: [s3:GetObject, s3:GetObjectVersion]
+            Resource: !Sub "${CodeBucket.Arn}/web/*"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref "AWS::AccountId"
+              ArnLike:
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:web-function/${WebFunctionName}/revision/*"
+          - Sid: DesignatedWorkerFunction
+            Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: [s3:GetObject, s3:GetObjectVersion]
+            Resource: !Sub "${CodeBucket.Arn}/web/*"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref "AWS::AccountId"
+              ArnEquals:
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${WorkerFunctionName}"
+Outputs:
+  CodeBucket:
+    Value: !Ref CodeBucket
+  RuntimeRepositoryUri:
+    Value: !GetAtt RuntimeRepository.RepositoryUri

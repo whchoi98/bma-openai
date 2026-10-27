@@ -1,0 +1,28 @@
+FROM public.ecr.aws/docker/library/python:3.12-slim
+
+RUN useradd --create-home --uid 1000 app \
+    && mkdir -p /home/app/workspace /opt/bma/bin /opt/studio/studio /opt/studio/fonts \
+    && chown -R app:app /home/app
+WORKDIR /opt/studio
+COPY studio/requirements.txt /opt/studio/requirements.txt
+RUN python -m venv /opt/studio/venv \
+    && /opt/studio/venv/bin/pip install --no-cache-dir -r /opt/studio/requirements.txt
+COPY --chmod=0555 runtime/bin/codex /opt/bma/bin/codex
+COPY --chmod=0444 runtime/lifecycle/server.py /opt/bma/lifecycle/server.py
+COPY --chmod=0444 runtime/LICENSE-AGENTCORE /opt/bma/licenses/LICENSE-AGENTCORE
+COPY --chmod=0444 studio/__init__.py /opt/studio/studio/__init__.py
+COPY studio/document_tools /opt/studio/studio/document_tools
+COPY --chmod=0444 studio/web/static/fonts/NanumSquareB.otf /opt/studio/fonts/NanumSquareB.otf
+COPY --chmod=0444 studio/web/static/fonts/OFL.txt /opt/studio/fonts/OFL.txt
+COPY studio/skills /opt/studio/skills
+RUN chmod -R a+rX /opt/bma /opt/studio && chmod -R go-w /opt/bma /opt/studio
+ENV APP_REGION=us-east-1 AWS_REGION=us-east-1 \
+    BMA_HOME_DIR=/home/app BMA_CODEX_HOME=/home/app/.codex BMA_STATE_DIR=/home/app/.bma \
+    BMA_CODEX_BINARY=/opt/bma/bin/codex AGENT_OBSERVABILITY_ENABLED=false \
+    STUDIO_FONT_PATH=/opt/studio/fonts/NanumSquareB.otf \
+    MPLBACKEND=Agg MPLCONFIGDIR=/tmp/studio-matplotlib \
+    PATH=/opt/studio/venv/bin:$PATH \
+    PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER app
+EXPOSE 8080
+CMD ["/opt/studio/venv/bin/python", "-u", "/opt/bma/lifecycle/server.py"]

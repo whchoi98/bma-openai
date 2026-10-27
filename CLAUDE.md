@@ -6,12 +6,15 @@ Bedrock Managed Agents (BMA, Mantle model `openai.gpt-6-luna`), which call a rea
 server inside an AgentCore Runtime V2 container. The app, BMA, Runtime and result storage run in
 **`us-east-1`**; the only query target is the same account's **`ap-northeast-2`** (Seoul).
 24 MCP tools, 4 Skills, 13 service categories. Live deployment record: `docs/aws-deployment.md`.
+A separate demo, **AI Document Studio** (`studio/`, model `openai.gpt-6.1-sol`), turns spreadsheets and notes into
+charts, diagrams and PPTX/DOCX with its own Web Function, document-only Runtime and stacks; see `studio/CLAUDE.md`.
 
 ## Tech Stack
 - **Python 3.12** — `boto3` 1.43.118, `mcp` 1.30.0, `fastapi` 0.162.0, `uvicorn`, `httpx`; dev: `pytest` 9.1.1, `ruff` 0.17.2, `cfn-lint`
 - **Node.js 24** (ESM) — AWS SDK v3 (`client-bedrock-agentcore`, `client-bedrock-runtime`, `client-lambda`, `client-s3`, `client-sts`), React 19.3.1, `react-markdown` 10.1.0 + `remark-gfm` 4.0.1, `docx`, `pptxgenjs`, `esbuild`
 - **AWS** — Lambda Web Functions (Node.js 24 only), AgentCore Runtime V2 (ARM64 container, HTTP protocol), BMA/Mantle, S3, ECR, IAM, CloudFormation
 - **Runtime image** — `python:3.12-slim`, Codex 0.164.0 Linux ARM64 binary, official BMA lifecycle server (`@aws/agentcore` 1.0.0)
+- **Studio** (`studio/requirements.txt`, `.studio-venv`) — `openpyxl` 3.1.5, `python-pptx` 1.0.2, `python-docx` 1.2.0, `matplotlib` 3.11.2, `Pillow`, `defusedxml`; reuses `web/node_modules`
 
 ## Project Structure
 ```
@@ -25,6 +28,7 @@ infra/          - CloudFormation: bootstrap.yaml (ECR + code bucket), template.y
 scripts/        - Preflight, build, deploy, live smoke and post-deploy verification scripts
 tests/          - pytest suite (Stubber, MCP STDIO, IAM scope) + tests/run-all.sh harness tests
 web/tests/      - node --test suite (HTTP/SSE, investigations, reports, markdown)
+studio/         - AI Document Studio: document MCP/renderers, Web Function + worker, Skills, CloudFormation, tests
 docs/           - Design, deployment, verification, data scope; architecture.md, reference/, runbooks/, decisions/
 artifacts/      - Local build/verification evidence (gitignored; contains deployment secrets)
 .claude/        - Claude settings, hooks, skills, commands, agents
@@ -54,6 +58,7 @@ npm ci --ignore-scripts --prefix web
 npm test --prefix web
 .venv/bin/ruff check .
 bash tests/run-all.sh                     # Claude harness tests (hooks, structure)
+# Studio tests: see studio/CLAUDE.md (.studio-venv unittest, test_infra in .venv, node --test studio/tests/)
 
 # Local sample mode (no AWS API or model calls)
 npm run build --prefix web && DATA_MODE=sample node web/index.js   # http://127.0.0.1:3000
@@ -64,12 +69,14 @@ DATA_MODE=sample .venv/bin/python -m aws_inventory.mcp_server
 .venv/bin/python scripts/prepare_runtime.py
 docker build --platform linux/arm64 -f runtime/Dockerfile -t bma-seoul-runtime:0.1.0 .
 .venv/bin/python scripts/build_web.py
+.venv/bin/python scripts/capture_screenshots.py   # README images (desk sample mode + Studio fixtures)
 
 # Live AWS (ask the user first: real account, real cost)
 .venv/bin/python scripts/preflight.py --list-models
 .venv/bin/python scripts/live_smoke.py
 ```
 Deployment: follow `docs/runbooks/deploy-production.md`. Every deploy uses a new immutable ECR tag, the new ZIP's S3 VersionId and the image digest; never `--disable-rollback` on Web Revision updates.
+Studio deploys separately with `studio/scripts/deploy.py`: follow `docs/runbooks/deploy-document-studio.md`.
 
 ## Error Handling
 - Tool results always carry `status` (`ok`, `empty`, `access_denied`, `unsupported_service`, `api_error`, `partial`, `account_mismatch`, `invalid_input`), `truncated`, `pagination_complete` and `errors`. Return these instead of raising, and never forward raw AWS error messages.
@@ -96,6 +103,7 @@ After exiting Plan mode (`/plan`), before starting implementation:
 - HTTP endpoint added/changed in `web/server.js` or `web/investigation-routes.js` -> Update `web/CLAUDE.md` and `docs/api-reference.md`
 - Infrastructure changed (`infra/*.yaml`, `runtime/Dockerfile`) -> Update `docs/architecture.md` Infrastructure section and `docs/runbooks/deploy-production.md`
 - Live deployment changed -> Update `docs/aws-deployment.md` with the verified values
+- `studio/` changed -> Update `studio/CLAUDE.md`, `studio/README.md` (spec/API) and `docs/document-studio.md`; `web/bma.js` changes also affect Studio
 
 ### ADR Numbering
 Find the highest number in `docs/decisions/ADR-*.md` and increment by 1.

@@ -1,0 +1,495 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AI Document Studio - isolated Web Function, bounded worker, and document Runtime V2 (stack bma-office-studio).
+Parameters:
+  AppRegion:
+    Type: String
+    Default: us-east-1
+    AllowedValues: [us-east-1]
+  RuntimeName:
+    Type: String
+    Default: bma_office_documents
+    AllowedValues: [bma_office_documents]
+  RuntimeRepositoryName:
+    Type: String
+    Default: bma-office-runtime
+    AllowedValues: [bma-office-runtime]
+  RuntimeImageUri:
+    Type: String
+    AllowedPattern: "[0-9]{12}\\.dkr\\.ecr\\.us-east-1\\.amazonaws\\.com/bma-office-runtime@sha256:[a-f0-9]{64}"
+    Description: Verified same-account Studio Runtime image digest; mutable image tags are not accepted.
+  CodeBucket:
+    Type: String
+  CodeKey:
+    Type: String
+    AllowedPattern: "web/.+\\.zip"
+  CodeVersionId:
+    Type: String
+    MinLength: 1
+  BmaModel:
+    Type: String
+    Default: openai.gpt-6-luna
+    AllowedValues: [openai.gpt-6-luna, openai.gpt-6.1-sol, openai.gpt-6.1-terra]
+  AppAccessToken:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: Shared application access token; do not include in outputs or browser bundles.
+Rules:
+  VirginiaOnly:
+    Assertions:
+      - Assert: !Equals [!Ref "AWS::Region", !Ref AppRegion]
+        AssertDescription: Deploy AI Document Studio to us-east-1.
+Resources:
+  StudioData:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration: {Status: Enabled}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireUploads
+            Status: Enabled
+            Prefix: uploads/
+            ExpirationInDays: 7
+            NoncurrentVersionExpiration: {NoncurrentDays: 1}
+            AbortIncompleteMultipartUpload: {DaysAfterInitiation: 1}
+          - Id: ExpireJobs
+            Status: Enabled
+            Prefix: jobs/
+            ExpirationInDays: 7
+            NoncurrentVersionExpiration: {NoncurrentDays: 1}
+            AbortIncompleteMultipartUpload: {DaysAfterInitiation: 1}
+          - Id: ExpireIndexes
+            Status: Enabled
+            Prefix: index/
+            ExpirationInDays: 7
+            NoncurrentVersionExpiration: {NoncurrentDays: 1}
+  StudioDataPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StudioData
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RequireTls
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt StudioData.Arn, !Sub "${StudioData.Arn}/*"]
+            Condition: {Bool: {"aws:SecureTransport": false}}
+  WebLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RetentionInDays: 7
+  WorkerLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RetentionInDays: 7
+  RuntimeRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReasons:
+        Identity: GetCallerIdentity requires Resource "*" and exposes no inventory APIs.
+        EcrToken: GetAuthorizationToken requires Resource "*"; image pulls are restricted to the Studio repository.
+        BmaProject: BMA assigns project and environment identifiers in this account and region.
+        JobObjects: UUID-shaped job and upload paths allow bounded multi-job operation in the dedicated bucket.
+        RuntimeLogs: Runtime adds a generated suffix to its designated log group name.
+        ExactObjectProbe: Fixed UUID and filename patterns with max-keys 1 permit absence checks, not prefix enumeration.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: bedrock-agentcore.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref "AWS::AccountId"
+              ArnLike:
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AppRegion}:${AWS::AccountId}:runtime/${RuntimeName}-*"
+      Policies:
+        - PolicyName: BmaEnvironmentConnection
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [bedrock-mantle:RegisterEnvironment, bedrock-mantle:ConnectEnvironment]
+                Resource: !Sub "arn:${AWS::Partition}:bedrock-mantle:${AppRegion}:${AWS::AccountId}:project/*"
+              - Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: "*"
+        - PolicyName: DocumentInputsAndArtifacts
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadDocumentInputsAndRecoverArtifacts
+                Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub "${StudioData.Arn}/uploads/????????-????-????-????-????????????/data"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/input.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/artifacts.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/outputs/*"
+              - Sid: WriteOnlyDocumentArtifacts
+                Effect: Allow
+                Action: s3:PutObject
+                Resource:
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/artifacts.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/outputs/*"
+              - Sid: ProbeExactInputOrArtifact
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StudioData.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "uploads/????????-????-????-????-????????????/data"
+                      - "jobs/????????-????-????-????-????????????/input.json"
+                      - "jobs/????????-????-????-????-????????????/artifacts.json"
+                      - "jobs/????????-????-????-????-????????????/outputs/chart_?.png"
+                      - "jobs/????????-????-????-????-????????????/outputs/chart_?.svg"
+                      - "jobs/????????-????-????-????-????????????/outputs/diagram_?.png"
+                      - "jobs/????????-????-????-????-????????????/outputs/diagram_?.svg"
+                      - "jobs/????????-????-????-????-????????????/outputs/documents.pptx"
+                      - "jobs/????????-????-????-????-????????????/outputs/documents.docx"
+                      - "jobs/????????-????-????-????-????????????/outputs/preview.html"
+                  NumericLessThanEquals:
+                    "s3:max-keys": 1
+        - PolicyName: OwnRuntimeInfrastructure
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ImageAuthorization
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: PullStudioImage
+                Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: !Sub "arn:${AWS::Partition}:ecr:${AppRegion}:${AWS::AccountId}:repository/${RuntimeRepositoryName}"
+              - Sid: OwnRuntimeLogs
+                Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AppRegion}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/${RuntimeName}*:*"
+  Runtime:
+    Type: AWS::BedrockAgentCore::Runtime
+    Properties:
+      AgentRuntimeName: !Ref RuntimeName
+      Description: Isolated document parsing, charts, diagrams, and Office rendering for AI Document Studio.
+      PlatformVersion: V2
+      RoleArn: !GetAtt RuntimeRole.Arn
+      AgentRuntimeArtifact:
+        ContainerConfiguration: {ContainerUri: !Ref RuntimeImageUri}
+      NetworkConfiguration: {NetworkMode: PUBLIC}
+      ProtocolConfiguration: HTTP
+      LifecycleConfiguration:
+        IdleRuntimeSessionTimeout: 900
+        MaxLifetime: 28800
+      EnvironmentVariables:
+        APP_REGION: !Ref AppRegion
+        EXPECTED_ACCOUNT_ID: !Ref "AWS::AccountId"
+        STUDIO_BUCKET: !Ref StudioData
+        BMA_HOME_DIR: /home/app
+        BMA_CODEX_HOME: /home/app/.codex
+        BMA_STATE_DIR: /home/app/.bma
+        BMA_CODEX_BINARY: /opt/bma/bin/codex
+        AGENT_OBSERVABILITY_ENABLED: "false"
+        STUDIO_FONT_PATH: /opt/studio/fonts/NanumSquareB.otf
+  SessionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReason: CreateInference has no model-specific resource ARN; the exact model is restricted by bedrock-mantle:Model.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: bedrock-mantle.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref "AWS::AccountId"
+              ArnLike:
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:bedrock-mantle:${AppRegion}:${AWS::AccountId}:*"
+      Policies:
+        - PolicyName: DesignatedModelAndRuntime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: bedrock-mantle:CreateInference
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "bedrock-mantle:Model": !Ref BmaModel
+              - Effect: Allow
+                Action: [bedrock-agentcore:InvokeAgentRuntime, bedrock-agentcore:StopRuntimeSession]
+                Resource:
+                  - !GetAtt Runtime.AgentRuntimeArn
+                  - !Sub "${Runtime.AgentRuntimeArn}/runtime-endpoint/DEFAULT"
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReasons:
+        Identity: GetCallerIdentity has no resource-specific ARN.
+        BmaProject: Session IDs are assigned by BMA inside this account and region.
+        JobObjects: UUID-shaped job and index paths are confined to the dedicated Studio bucket.
+        ExactObjectProbe: Exact UUID keys with max-keys 1 support missing-record reconciliation.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BoundedStudioSession
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock-mantle:CreateAgentSession
+                  - bedrock-mantle:GetAgentSession
+                  - bedrock-mantle:ListAgentSessions
+                  - bedrock-mantle:CreateAgentSessionEvent
+                  - bedrock-mantle:ListAgentSessionEvents
+                  - bedrock-mantle:ListAgentSessionItems
+                Resource: !Sub "arn:${AWS::Partition}:bedrock-mantle:${AppRegion}:${AWS::AccountId}:project/*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt SessionRole.Arn
+                Condition:
+                  StringEquals:
+                    "iam:PassedToService": bedrock-mantle.amazonaws.com
+              - Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: "*"
+        - PolicyName: JobStateAndOwnLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadJobInputStateAndResults
+                Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/input.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/state.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/artifacts.json"
+                  - !Sub "${StudioData.Arn}/index/?????????????-????????-????-????-????-????????????.json"
+              - Sid: WriteOnlyJobStateAndIndex
+                Effect: Allow
+                Action: s3:PutObject
+                Resource:
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/state.json"
+                  - !Sub "${StudioData.Arn}/index/?????????????-????????-????-????-????-????????????.json"
+              - Sid: ProbeExactJobRecord
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StudioData.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "jobs/????????-????-????-????-????????????/input.json"
+                      - "jobs/????????-????-????-????-????????????/state.json"
+                      - "jobs/????????-????-????-????-????????????/artifacts.json"
+                      - "index/?????????????-????????-????-????-????-????????????.json"
+                  NumericLessThanEquals:
+                    "s3:max-keys": 1
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt WorkerLogs.Arn
+  WebRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReasons:
+        Identity: GetCallerIdentity has no resource-specific ARN.
+        JobObjects: UUID-shaped paths confine uploads, requests, status, and downloads to the dedicated bucket.
+        ExactObjectProbe: Only exact generated keys may be probed with max-keys 1.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DispatchStudioWorker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt StudioWorker.Arn
+              - Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: "*"
+        - PolicyName: UploadRequestStatusAndDownload
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadUploadMetadataJobStatusAndDownloads
+                Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub "${StudioData.Arn}/uploads/????????-????-????-????-????????????/meta.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/input.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/state.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/outputs/*"
+                  - !Sub "${StudioData.Arn}/index/?????????????-????????-????-????-????-????????????.json"
+              - Sid: WriteUploadRequestsAndStatus
+                Effect: Allow
+                Action: s3:PutObject
+                Resource:
+                  - !Sub "${StudioData.Arn}/uploads/????????-????-????-????-????????????/data"
+                  - !Sub "${StudioData.Arn}/uploads/????????-????-????-????-????????????/meta.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/input.json"
+                  - !Sub "${StudioData.Arn}/jobs/????????-????-????-????-????????????/state.json"
+                  - !Sub "${StudioData.Arn}/index/?????????????-????????-????-????-????-????????????.json"
+              - Sid: BoundedJobHistory
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StudioData.Arn
+                Condition:
+                  StringEquals:
+                    "s3:prefix": index/
+                  NumericLessThanEquals:
+                    "s3:max-keys": 20
+              - Sid: ProbeExactWebRecordOrDownload
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StudioData.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "uploads/????????-????-????-????-????????????/meta.json"
+                      - "jobs/????????-????-????-????-????????????/input.json"
+                      - "jobs/????????-????-????-????-????????????/state.json"
+                      - "index/?????????????-????????-????-????-????-????????????.json"
+                      - "jobs/????????-????-????-????-????????????/outputs/chart_?.png"
+                      - "jobs/????????-????-????-????-????????????/outputs/chart_?.svg"
+                      - "jobs/????????-????-????-????-????????????/outputs/diagram_?.png"
+                      - "jobs/????????-????-????-????-????????????/outputs/diagram_?.svg"
+                      - "jobs/????????-????-????-????-????????????/outputs/documents.pptx"
+                      - "jobs/????????-????-????-????-????????????/outputs/documents.docx"
+                      - "jobs/????????-????-????-????-????????????/outputs/preview.html"
+                  NumericLessThanEquals:
+                    "s3:max-keys": 1
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt WebLogs.Arn
+  StudioWorker:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-worker"
+      Description: Bounded document generation with persisted phases and isolated BMA sessions.
+      Runtime: nodejs24.x
+      Handler: studio/web/worker.handler
+      Architectures: [arm64]
+      MemorySize: 512
+      Timeout: 360
+      ReservedConcurrentExecutions: 2
+      Role: !GetAtt WorkerRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+        S3ObjectVersion: !Ref CodeVersionId
+      Environment:
+        Variables:
+          APP_REGION: !Ref AppRegion
+          EXPECTED_ACCOUNT_ID: !Ref "AWS::AccountId"
+          BMA_MODEL: !Ref BmaModel
+          BMA_RUNTIME_ARN: !GetAtt Runtime.AgentRuntimeArn
+          BMA_SESSION_ROLE_ARN: !GetAtt SessionRole.Arn
+          STUDIO_BUCKET: !Ref StudioData
+      LoggingConfig:
+        LogGroup: !Ref WorkerLogs
+        LogFormat: JSON
+        ApplicationLogLevel: WARN
+        SystemLogLevel: INFO
+  StudioWorkerAsync:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref StudioWorker
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 1
+      MaximumEventAgeInSeconds: 600
+  WebFunction:
+    Type: AWS::Lambda::WebFunction
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-web"
+  WebRevision:
+    Type: AWS::Lambda::WebFunctionRevision
+    Properties:
+      FunctionName: !Ref WebFunction
+      BuildConfig:
+        CodeConfig:
+          S3Object:
+            Bucket: !Ref CodeBucket
+            Key: !Ref CodeKey
+            VersionId: !Ref CodeVersionId
+        RuntimeConfig: {Runtime: nodejs24.x}
+      ServiceConfig:
+        ExecutionRoleArn: !GetAtt WebRole.Arn
+        TimeoutSeconds: 600
+        MaxConcurrencyPerEnvironment: 8
+        EnvironmentVariables:
+          APP_REGION: !Ref AppRegion
+          EXPECTED_ACCOUNT_ID: !Ref "AWS::AccountId"
+          BMA_MODEL: !Ref BmaModel
+          BMA_RUNTIME_ARN: !GetAtt Runtime.AgentRuntimeArn
+          BMA_SESSION_ROLE_ARN: !GetAtt SessionRole.Arn
+          STUDIO_BUCKET: !Ref StudioData
+          STUDIO_WORKER_ARN: !GetAtt StudioWorker.Arn
+          APP_ACCESS_TOKEN: !Ref AppAccessToken
+        TelemetryConfig:
+          LoggingConfig:
+            LogGroup: !Ref WebLogs
+            ApplicationLogLevel: WARN
+            SystemLogLevel: INFO
+  WebEndpoint:
+    Type: AWS::Lambda::WebFunctionEndpoint
+    Properties:
+      FunctionName: !Ref WebFunction
+      EndpointName: studio
+      EndpointType: HomeRegion
+      AuthType: ApplicationManaged
+      RevisionWeights:
+        - RevisionId: !GetAtt WebRevision.RevisionId
+          Weight: 100
+      ScalingConfig: {MaxEnvironments: 2}
+      ThrottleConfig: {RateLimit: 100}
+Outputs:
+  WebUrl:
+    Value: !Sub "https://${WebEndpoint.DomainName}"
+  RuntimeArn:
+    Value: !GetAtt Runtime.AgentRuntimeArn
+  RuntimeRoleArn:
+    Value: !GetAtt RuntimeRole.Arn
+  SessionRoleArn:
+    Value: !GetAtt SessionRole.Arn
+  WorkerArn:
+    Value: !GetAtt StudioWorker.Arn
+  WorkerRoleArn:
+    Value: !GetAtt WorkerRole.Arn
+  WebRoleArn:
+    Value: !GetAtt WebRole.Arn
+  StudioBucket:
+    Value: !Ref StudioData
+  ExpectedAccountId:
+    Value: !Ref "AWS::AccountId"
+  AppRegion:
+    Value: !Ref AppRegion

@@ -19,9 +19,9 @@ FILE_PATH="${FILE_PATH#"$PROJECT_DIR"/}"
 FILE_PATH="${FILE_PATH#./}"
 
 # Top-level source directories of this project. Each one is itself a module and
-# owns a CLAUDE.md. webapp/static/ ships inside the Web Function ZIP, so module
-# docs for it live in webapp/CLAUDE.md instead.
-SOURCE_ROOTS="aws_inventory webapp web runtime infra scripts skills tests"
+# owns a CLAUDE.md. webapp/static/ and studio/web/ ship inside Web Function ZIPs,
+# so their docs live in webapp/CLAUDE.md and studio/CLAUDE.md instead.
+SOURCE_ROOTS="aws_inventory webapp web runtime infra scripts skills tests studio"
 
 MESSAGES=()
 
@@ -56,7 +56,9 @@ if $IS_SOURCE || [[ "$FILE_PATH" == docs/architecture.md ]]; then
 fi
 
 # Infrastructure changes must be reflected in runbooks and architecture docs
-if [[ "$FILE_PATH" == */Dockerfile || "$FILE_PATH" == Dockerfile* || "$FILE_PATH" == infra/*.yaml ]]; then
+if [[ "$FILE_PATH" == studio/infra/*.yaml || "$FILE_PATH" == studio/RuntimeDockerfile ]]; then
+    MESSAGES+=("[doc-sync] Studio infrastructure changed: check docs/architecture.md (AI Document Studio) and docs/runbooks/deploy-document-studio.md.")
+elif [[ "$FILE_PATH" == */Dockerfile || "$FILE_PATH" == Dockerfile* || "$FILE_PATH" == infra/*.yaml ]]; then
     RUNBOOK_COUNT=$(find docs/runbooks -name '*.md' -not -name '.template.md' 2>/dev/null | wc -l)
     if [ "$RUNBOOK_COUNT" -eq 0 ]; then
         MESSAGES+=("[doc-sync] No runbooks found. Create operational runbooks for deployment/recovery.")

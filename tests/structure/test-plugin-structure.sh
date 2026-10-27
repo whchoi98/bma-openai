@@ -17,16 +17,17 @@ grep -qF "Version-${PY_VER}-" README.md && pass "README version badge matches $P
 for f in CLAUDE.md README.md CHANGELOG.md LICENSE .editorconfig .env.example .gitignore .dockerignore \
          docs/architecture.md docs/onboarding.md docs/api-reference.md \
          docs/decisions/.template.md docs/runbooks/.template.md docs/runbooks/deploy-production.md \
-         docs/reference/INDEX.md; do
+         docs/reference/INDEX.md docs/runbooks/deploy-document-studio.md docs/document-studio.md \
+         studio/README.md studio/examples/monthly-sales.xlsx studio/examples/monthly-sales-en.xlsx; do
     assert_file_exists "$f" "$f"
 done
 
 # --- Module CLAUDE.md for every source root (none inside the zipped static tree) ---
-for module in aws_inventory webapp web runtime infra scripts skills tests; do
+for module in aws_inventory webapp web runtime infra scripts skills tests studio; do
     assert_file_exists "Module doc: $module/CLAUDE.md" "$module/CLAUDE.md"
 done
-STATIC_DOCS=$(find webapp/static -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-assert_eq "webapp/static/ contains no Markdown (shipped in the Web Function ZIP)" "0" "$STATIC_DOCS"
+STATIC_DOCS=$(find webapp/static studio/web -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+assert_eq "webapp/static/ and studio/web/ contain no Markdown (shipped in Web Function ZIPs)" "0" "$STATIC_DOCS"
 
 # --- Runtime image must not receive Claude files ---
 DOCKERIGNORE=$(cat .dockerignore)
@@ -38,6 +39,8 @@ GITIGNORE=$(cat .gitignore)
 for pattern in ".env" "artifacts/" ".claude/settings.local.json" "runtime/bin/"; do
     assert_contains ".gitignore has $pattern" "$GITIGNORE" "$pattern"
 done
+git check-ignore -q studio/node_modules \
+    && pass ".gitignore covers the studio/node_modules symlink" || fail ".gitignore covers the studio/node_modules symlink" "not ignored"
 
 # --- Script validation ---
 for script in scripts/setup.sh scripts/install-hooks.sh tests/run-all.sh; do
@@ -108,7 +111,8 @@ assert_eq "README English and Korean sections show the same screenshots" "$EN_IM
 
 # --- Bilingual documents use ASCII anchors with sentinels ---
 for doc in README.md CHANGELOG.md docs/architecture.md docs/onboarding.md docs/api-reference.md \
-           docs/runbooks/deploy-production.md docs/decisions/ADR-001-read-only-tool-boundary.md; do
+           docs/runbooks/deploy-production.md docs/decisions/ADR-001-read-only-tool-boundary.md \
+           docs/runbooks/deploy-document-studio.md docs/decisions/ADR-002-separate-document-studio-stack.md; do
     if grep -qF '<a id="english"></a>' "$doc" && grep -qF '<a id="korean"></a>' "$doc"; then
         pass "Bilingual anchors: $doc"
     else

@@ -17,3 +17,4 @@ the Claude Code setup (hooks, settings, commands, CLAUDE.md sections).
 - Unit tests never call AWS or a model. Use `StubSession` / sample mode.
 - Build secret-like test strings at runtime by concatenation so the secret scanner and push protection do not flag them.
 - Run: `.venv/bin/python -m pytest`, `bash tests/run-all.sh`. Node tests live in `web/tests/`.
+- Studio tests live in `studio/tests/` and are not collected by `pytest` (`testpaths = ["tests"]`); commands are in `studio/CLAUDE.md`.

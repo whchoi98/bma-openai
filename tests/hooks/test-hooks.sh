@@ -48,6 +48,12 @@ assert_eq "check-doc-sync: hook mode emits PostToolUse JSON" "PostToolUse" \
     "$(echo "$OUTPUT" | jq -r '.hookSpecificOutput.hookEventName // empty' 2>/dev/null || true)"
 assert_contains "check-doc-sync: infra change points to runbook" "$CONTEXT" "deploy-production.md"
 
+OUTPUT=$(bash .claude/hooks/check-doc-sync.sh "studio/infra/template.yaml" 2>&1 || true)
+assert_contains "check-doc-sync: Studio infra points to the Studio runbook" "$OUTPUT" "deploy-document-studio.md"
+assert_not_contains "check-doc-sync: Studio infra does not point to the desk runbook" "$OUTPUT" "deploy-production.md"
+assert_contains "check-doc-sync: studio/ is a source root" \
+    " $(sed -n 's/^SOURCE_ROOTS="\(.*\)"$/\1/p' .claude/hooks/check-doc-sync.sh) " " studio "
+
 # --- secret-scan behavior (PreToolUse mode, isolated git repo) ---
 OUTPUT=$(echo '{"tool_input":{"command":"ls -la"}}' | bash .claude/hooks/secret-scan.sh 2>&1; echo "exit=$?")
 assert_eq "secret-scan: non-commit command passes silently" "exit=0" "$OUTPUT"

@@ -28,6 +28,10 @@ VPC/EBS/ECR with relationship diagrams, report history with DOCX/PPTX, and confi
 security-setting checks for S3/DynamoDB/ElastiCache/OpenSearch/MSK. It currently supports
 **24 MCP tools, 4 Skills, and 13 service categories**.
 
+The repository also contains **[AI Document Studio](#ai-document-studio)** (`studio/`), a separate demo for
+office workers that turns a spreadsheet or notes into charts, diagrams, and editable PPTX/DOCX with
+`openai.gpt-6.1-sol`. It runs on its own Web Function, document-only Runtime, and stacks without AWS resource-query permissions.
+
 ![Operations Desk main screen: account and region card, supported services, question form, and a completed answer](docs/images/en-overview.png)
 
 ## Features
@@ -37,6 +41,7 @@ security-setting checks for S3/DynamoDB/ElastiCache/OpenSearch/MSK. It currently
 - **Reports with account masking** — Render saved results as Markdown/HTML/DOCX/PPTX reports that show only the last 3 digits of the account ID, without re-querying the model or resources.
 - **Operations investigations** — Send follow-up questions to the same BMA session, recover the same run after reconnecting, and track four versioned operating procedures.
 - **Relationship and security views** — Connect only actually observed resources in relationship diagrams and classify security checks as met, needs review, or unverified.
+- **AI Document Studio** — Turn one XLSX/CSV/TXT/MD file or pasted notes into charts, diagrams, and editable PPTX/DOCX in three styles, with real progress phases and a sandboxed preview; numbers come from code, not the model.
 
 ### Screenshots
 
@@ -62,6 +67,31 @@ and no real resource appears. Regenerate them with `.venv/bin/python scripts/cap
   </tr>
   <tr>
     <td colspan="2"><img src="docs/images/en-dark.png" alt="Dark mode with an operations investigation result"><br><sub><b>Dark mode and English UI</b> — theme and language switch from the top bar</sub></td>
+  </tr>
+</table>
+
+### AI Document Studio
+
+A separate demo in [`studio/`](studio/) for non-developers. Upload one XLSX/CSV/TXT/MD file (up to 5 MiB)
+or paste notes, describe the result in plain language, and pick PowerPoint, Word, chart, and diagram
+outputs in the business report, AWS Operations Desk, or presentation style. BMA (`openai.gpt-6.1-sol`)
+writes the structure and wording, while six bounded document MCP tools aggregate the real values and
+render PNG/SVG, editable PPTX/DOCX, and an HTML content preview. Downloads are authenticated, and files
+expire after 7 days. Usage, limits, and live verification (Korean): [document-studio.md](docs/document-studio.md);
+deployment: [runbook](docs/runbooks/deploy-document-studio.md).
+
+The screenshots come from a local fixture: the real Studio UI and HTTP routes serve files rendered by the
+real Python renderers from [`studio/examples/`](studio/examples/). Only the answer text is fixed, and no AWS API or
+model was called. Regenerate them with `.venv/bin/python scripts/capture_screenshots.py studio`.
+
+<table>
+  <tr>
+    <td colspan="3"><img src="docs/images/en-studio-result.png" alt="AI Document Studio with a finished job: answer summary, five files, and a document preview with a monthly revenue chart"><br><sub><b>Finished documents</b> — chart PNG/SVG, PPTX, DOCX, and the HTML content preview with the chart aggregated from the uploaded spreadsheet</sub></td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top"><img src="docs/images/en-studio-brief.png" alt="Brief form with an uploaded spreadsheet, request, output choices, and document styles"><br><sub><b>Brief</b> — one file or notes, a plain-language request, outputs, and one of three styles</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/en-studio-progress.png" alt="Progress panel with completed phases, current phase, and elapsed time"><br><sub><b>Progress</b> — real job phases and elapsed time, no invented percentages</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/en-studio-diagram.png" alt="Earlier job showing a workflow diagram file in the AWS Operations Desk style"><br><sub><b>Diagram output</b> — notes turned into a workflow diagram in the AWS Operations Desk style</sub></td>
   </tr>
 </table>
 
@@ -114,6 +144,11 @@ npm run build --prefix web
 # Create the Python environment and install development dependencies
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -e '.[dev]'
+
+# Optional: AI Document Studio environment and package link
+uv venv --python 3.12 .studio-venv
+uv pip install --python .studio-venv/bin/python -r studio/requirements.txt
+ln -s ../web/node_modules studio/node_modules
 ```
 
 ## Usage
@@ -184,6 +219,7 @@ bma-openai/
 ├── runtime/              # Official BMA lifecycle server, HTTP-to-STDIO MCP bridge, ARM64 Dockerfile
 ├── scripts/              # Preflight, build, deployment, and live verification scripts
 ├── skills/               # 4 BMA Skills packaged into the Runtime image
+├── studio/               # AI Document Studio: document MCP/renderers, Web Function, Skills, stacks, tests
 ├── tests/                # Python tests and the tests/run-all.sh harness suite
 ├── web/                  # Node.js 24 Web Function, BMA/Converse clients, reports, React answer components
 └── webapp/               # Python local reference app and shared static UI
@@ -202,6 +238,7 @@ bma-openai/
 | `infra/` | 4 roles, Runtime V2, Web Function, investigation worker Lambda, app S3 |
 | `scripts/` | Account preflight, builds, and small-scale live queries |
 | `tests/`, `web/tests/` | Stubber, MCP STDIO, HTTP/SSE, and IAM policy scope verification |
+| `studio/` | AI Document Studio: input parsing, chart aggregation, Office renderers, job-bound MCP, separate Web Function, worker, and stacks |
 
 ## Testing
 
@@ -217,6 +254,11 @@ npm test --prefix web
 
 # Claude Code harness tests (hooks, secret patterns, project structure)
 bash tests/run-all.sh
+
+# AI Document Studio (parsing, rendering, MCP, IAM scope, HTTP/worker)
+.studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
+.venv/bin/python -m unittest studio.tests.test_infra
+node --test studio/tests/backend.test.js
 ```
 
 ## API Documentation
@@ -225,7 +267,8 @@ The Web Function serves `/health` and the `/api/*` routes: `/api/context`, `/api
 `/api/runs/{id}`, `/api/runs/{id}/report.{md|html|docx|pptx}`, `/api/procedures`, and `/api/investigations`
 with its turn, event, and cancel sub-routes. When an access key is configured, `/api/*` requires
 `Authorization: Bearer <APP_ACCESS_TOKEN>`; unauthenticated API requests return 401.
-See the [API reference](docs/api-reference.md) for request and response details.
+See the [API reference](docs/api-reference.md) for request and response details, including the separate
+[AI Document Studio API](docs/api-reference.md#ai-document-studio-api) (`/api/config`, `/api/uploads`, `/api/jobs/**`).
 
 ## Contributing
 
@@ -372,6 +415,7 @@ The overall verification status and unexecuted items are in [Verification Result
 - [Data processing, networking, cost limits, and unsupported scope](docs/data-and-scope.md)
 - [Design](docs/design.md), [implementation plan](docs/implementation-plan.md)
 - [Official lifecycle source](runtime/UPSTREAM.md)
+- [AI Document Studio usage and verification (Korean)](docs/document-studio.md), [Studio specification](studio/README.md), [ADR-002](docs/decisions/ADR-002-separate-document-studio-stack.md)
 
 Official references: [BMA example repository](https://github.com/openai-on-aws/bedrock-managed-agents),
 [AWS BMA guide](https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-managed-agents-openai.html),
@@ -396,6 +440,10 @@ AI-Powered AWS Operations Desk는 자연어 질문을 BMA(Bedrock Managed Agents
 VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache/OpenSearch/MSK의
 구성 조회와 보안 설정 점검입니다. 현재 **24개 MCP 도구, 4개 Skills, 13개 서비스 범주**를 지원합니다.
 
+저장소에는 별도 데모인 **[AI Document Studio](#ai-document-studio-1)**(`studio/`)도 있습니다. 회사원이 엑셀이나 메모를 넣으면
+`openai.gpt-6.1-sol`로 차트, 다이어그램, 편집 가능한 PPTX/DOCX를 만듭니다. 별도 Web Function, 문서 전용 Runtime,
+독립 스택에서 실행되며 AWS 리소스 조회 권한이 없습니다.
+
 ![Operations Desk 기본 화면: 계정과 리전 카드, 지원 서비스, 질문 입력, 완료된 답변](docs/images/ko-overview.png)
 
 ## 주요 기능
@@ -405,6 +453,7 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
 - **계정 마스킹 보고서** — 저장된 결과를 Markdown/HTML/DOCX/PPTX 보고서로 렌더링하며 계정 ID는 마지막 3자리만 표시합니다. 모델이나 리소스를 다시 조회하지 않습니다.
 - **운영 조사** — 같은 BMA 세션에 후속 질문을 보내고, 재접속 후 같은 실행을 복구하며, 버전이 있는 네 가지 운영 절차를 추적합니다.
 - **관계도와 보안 점검** — 관계도는 실제 관측된 리소스만 연결하고, 보안 구성 점검은 기준 충족, 확인 필요, 미확인을 구분합니다.
+- **AI Document Studio** — XLSX/CSV/TXT/MD 파일 하나나 붙여 넣은 메모로 차트, 다이어그램, 편집 가능한 PPTX/DOCX를 세 가지 스타일로 만듭니다. 실제 진행 단계와 안전한 미리보기를 제공하며, 숫자는 모델이 아니라 코드가 계산합니다.
 
 ### 화면
 
@@ -430,6 +479,30 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
   </tr>
   <tr>
     <td colspan="2"><img src="docs/images/ko-dark.png" alt="운영 조사 결과가 표시된 다크 모드 화면"><br><sub><b>다크 모드와 한국어 화면</b> — 상단 막대에서 테마와 언어를 전환합니다</sub></td>
+  </tr>
+</table>
+
+### AI Document Studio
+
+비개발자를 위한 별도 데모로 [`studio/`](studio/)에 있습니다. XLSX/CSV/TXT/MD 파일 하나(최대 5 MiB)를 올리거나
+메모를 붙여 넣고, 원하는 결과를 자연어로 쓴 뒤 PowerPoint, Word, 차트, 다이어그램 출력과 업무 보고서, AWS 운영 데스크,
+발표 자료 스타일 중 하나를 고릅니다. BMA(`openai.gpt-6.1-sol`)는 구성과 문장을 쓰고, 제한된 문서 MCP 도구 6개가
+실제 값을 집계해 PNG/SVG, 편집 가능한 PPTX/DOCX, HTML 내용 미리보기를 만듭니다. 다운로드에는 인증이 필요하고
+파일은 7일 뒤 만료됩니다. 사용법, 한도, 실제 검증은 [document-studio.md](docs/document-studio.md), 배포는
+[런북](docs/runbooks/deploy-document-studio.md)을 참고합니다.
+
+화면은 로컬 fixture에서 캡처했습니다. 실제 Studio 화면과 HTTP 경로가 [`studio/examples/`](studio/examples/)의 자료로
+실제 Python 렌더러가 만든 파일을 제공하며, 답변 문장만 고정 예시입니다. AWS API와 모델은 호출하지 않았습니다.
+`.venv/bin/python scripts/capture_screenshots.py studio`로 다시 만들 수 있습니다.
+
+<table>
+  <tr>
+    <td colspan="3"><img src="docs/images/ko-studio-result.png" alt="완료된 작업: 답변 요약, 파일 5개, 월별 매출 차트가 들어간 문서 미리보기"><br><sub><b>완성된 문서</b> — 차트 PNG/SVG, PPTX, DOCX, 그리고 올린 엑셀로 집계한 차트가 들어간 HTML 내용 미리보기</sub></td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top"><img src="docs/images/ko-studio-brief.png" alt="엑셀 파일, 요청, 출력 선택, 문서 스타일이 있는 입력 화면"><br><sub><b>요청 입력</b> — 파일 하나나 메모, 자연어 요청, 출력 형식, 세 가지 스타일</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/ko-studio-progress.png" alt="완료한 단계, 현재 단계, 경과 시간이 있는 진행 화면"><br><sub><b>진행 상황</b> — 실제 작업 단계와 경과 시간, 임의 백분율 없음</sub></td>
+    <td width="33%" valign="top"><img src="docs/images/ko-studio-diagram.png" alt="AWS 운영 데스크 스타일의 업무 흐름도 파일을 보여 주는 이전 작업"><br><sub><b>다이어그램 출력</b> — 메모를 AWS 운영 데스크 스타일의 업무 흐름도로 정리</sub></td>
   </tr>
 </table>
 
@@ -482,6 +555,11 @@ npm run build --prefix web
 # Create the Python environment and install development dependencies
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -e '.[dev]'
+
+# Optional: AI Document Studio environment and package link
+uv venv --python 3.12 .studio-venv
+uv pip install --python .studio-venv/bin/python -r studio/requirements.txt
+ln -s ../web/node_modules studio/node_modules
 ```
 
 ## 사용법
@@ -551,6 +629,7 @@ bma-openai/
 ├── runtime/              # 공식 BMA lifecycle 서버, HTTP→STDIO MCP bridge, ARM64 Dockerfile
 ├── scripts/              # 사전 확인, 빌드, 배포, 실제 조회 검증 스크립트
 ├── skills/               # Runtime 이미지에 포함되는 BMA Skills 4개
+├── studio/               # AI Document Studio: 문서 MCP/렌더러, Web Function, Skills, 스택, 테스트
 ├── tests/                # Python 테스트와 tests/run-all.sh 하네스 테스트
 ├── web/                  # Node.js 24 Web Function, BMA/Converse 클라이언트, 보고서, React 답변 컴포넌트
 └── webapp/               # Python 로컬 참조 앱과 공통 정적 화면
@@ -569,6 +648,7 @@ bma-openai/
 | `infra/` | 역할 4개, Runtime V2, Web Function, 조사 worker Lambda, 앱 S3 |
 | `scripts/` | 계정 사전 확인, 빌드, 소규모 실제 조회 |
 | `tests/`, `web/tests/` | Stubber, MCP STDIO, HTTP/SSE, IAM 정책 범위 검증 |
+| `studio/` | AI Document Studio: 입력 해석, 차트 집계, Office 렌더러, 작업 고정 MCP, 별도 Web Function·worker·스택 |
 
 ## 테스트
 
@@ -584,6 +664,11 @@ npm test --prefix web
 
 # Claude Code harness tests (hooks, secret patterns, project structure)
 bash tests/run-all.sh
+
+# AI Document Studio (parsing, rendering, MCP, IAM scope, HTTP/worker)
+.studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
+.venv/bin/python -m unittest studio.tests.test_infra
+node --test studio/tests/backend.test.js
 ```
 
 ## API 문서
@@ -592,7 +677,8 @@ Web Function은 `/health`와 `/api/*` 경로를 제공합니다. `/api/context`,
 `/api/runs/{id}`, `/api/runs/{id}/report.{md|html|docx|pptx}`, `/api/procedures`, 그리고 turn·event·cancel
 하위 경로를 가진 `/api/investigations`입니다. 접속 키가 설정되어 있으면 `/api/*`는
 `Authorization: Bearer <APP_ACCESS_TOKEN>`이 필요하며, 인증하지 않은 API 요청은 401을 반환합니다.
-요청과 응답의 세부 내용은 [API 레퍼런스](docs/api-reference.md)를 참고합니다.
+요청과 응답의 세부 내용은 [API 레퍼런스](docs/api-reference.md)를 참고합니다. 별도
+[AI Document Studio API](docs/api-reference.md#ai-document-studio-api-1)(`/api/config`, `/api/uploads`, `/api/jobs/**`)도 같은 문서에 있습니다.
 
 ## 기여 방법
 
@@ -736,6 +822,7 @@ Web Revision 교체 업데이트에는 `--disable-rollback`을 사용하지 않�
 - [데이터 처리·네트워크·비용 한도·미지원 범위](docs/data-and-scope.md)
 - [설계](docs/design.md), [구현 계획](docs/implementation-plan.md)
 - [공식 lifecycle 출처](runtime/UPSTREAM.md)
+- [AI Document Studio 사용 안내와 검증](docs/document-studio.md), [Studio 명세](studio/README.md), [ADR-002](docs/decisions/ADR-002-separate-document-studio-stack.md)
 
 공식 참조: [BMA 예제 저장소](https://github.com/openai-on-aws/bedrock-managed-agents),
 [AWS BMA 가이드](https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-managed-agents-openai.html),

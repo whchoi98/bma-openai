@@ -16,3 +16,4 @@ the same Markdown (with SHA-256) through `web/contract.json`.
 - This `CLAUDE.md` is excluded from the image by `.dockerignore`; do not add other non-Skill files here.
 - After editing a Skill, re-run `.venv/bin/python scripts/export_web_contract.py` (hash changes) and rebuild the Runtime image.
 - Skills must not instruct the model to call tools that do not exist in `aws_inventory/schema.py`.
+- AI Document Studio's 3 Skills live in `studio/skills/` and go only into the Studio Runtime image; do not mix them into this directory.

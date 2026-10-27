@@ -19,3 +19,4 @@ HTTP → STDIO MCP bridge for the optional Converse path.
 - `.dockerignore` excludes `**/CLAUDE.md`, `.claude`, tests and docs; keep the image limited to runtime files.
 - Verify a new image with `.venv/bin/python scripts/check_runtime.py` (network disabled; checks uid, Codex version, 4 Skills, `/ping`).
 - Push with a new immutable ECR tag and deploy by digest.
+- `studio/RuntimeDockerfile` also copies `bin/codex`, `lifecycle/server.py` and `LICENSE-AGENTCORE` into the separate document Runtime image; a Codex or lifecycle update means rebuilding both images.

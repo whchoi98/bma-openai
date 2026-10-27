@@ -18,3 +18,4 @@ code S3 bucket and ECR repository. `template.yaml` (stack `bma-seoul-inventory`)
 - Validate before deploying: `.venv/bin/cfn-lint infra/*.yaml`.
 - Parameters come from `scripts/deployment_parameters.py` (writes a 0600 file under `artifacts/`); never commit parameter files or `AppAccessToken`.
 - Do not use `--disable-rollback` for Web Revision replacements. Follow `docs/runbooks/deploy-production.md`.
+- AI Document Studio has its own templates in `studio/infra/` (stacks `bma-office-build`, `bma-office-studio`); never add Studio resources or permissions to these templates.

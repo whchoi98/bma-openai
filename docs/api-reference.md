@@ -219,6 +219,23 @@ The stream ends after 360 seconds; reconnect with the same URL to resume from st
 | Concurrent investigation workers | 2 | `InvestigationWorker.ReservedConcurrentExecutions` |
 | Agent turn time | `MAX_TURN_SECONDS` (default 180, deployed 300) | `web/settings.js` |
 
+## AI Document Studio API
+
+A separate server, `studio/web/server.js`, on the `WebUrl` of the `bma-office-studio` stack. All `/api/*` paths need `Authorization: Bearer <APP_ACCESS_TOKEN>`; the STS account is checked after authentication (`409 {"error":"AccountMismatch"}`). Full request and job shapes: [studio/README.md](../studio/README.md#web-api).
+
+| Method and path | Request | Response |
+|-----------------|---------|----------|
+| `GET /api/config` | - | `{model, app_region, styles, limits, formats}` |
+| `POST /api/uploads` | Raw body (`application/octet-stream`), `X-File-Name: encodeURIComponent(name)`; `.xlsx`, `.csv`, `.txt`, `.md`, up to 5 MiB | `201 {upload: {id, name, size, extension}}` |
+| `POST /api/jobs` | `{request_id, upload_id?, notes?, prompt, outputs, style, language, source_job_id?}`; `outputs` from `pptx`, `docx`, `chart`, `diagram` | `202 {job}`; the same `request_id` returns the same job |
+| `GET /api/jobs?limit=10&cursor=` | - | `{jobs, next_cursor, complete}` |
+| `GET /api/jobs/{id}` | - | `{job}` |
+| `GET /api/jobs/{id}/events` | - | SSE `{type: "snapshot"\|"heartbeat"\|"complete", job}`; errors `{type: "error", code}` |
+| `POST /api/jobs/{id}/cancel` | Empty JSON object `{}` | `202 {job}` |
+| `GET /api/jobs/{id}/artifacts/{artifact_id}[?view=inline]` | - | File bytes; `inline` only for PNG, SVG and HTML, with a `sandbox` CSP |
+
+Job `status` is `queued`, `running`, `complete`, `partial`, `failed`, `cancelled` or `uncertain`; `phase` is `queued`, `reading`, `analyzing`, `charting`, `diagramming`, `writing`, `packaging` or `done`. Public jobs never include BMA session IDs, S3 keys or credentials. Validation errors return `422 {"error":"<Code>"}` (for example `UnsupportedFile`, `InvalidOutputs`, `NotesTooLong`); `413 FileTooLarge`, `404 JobNotFound`/`ArtifactNotFound`, `409 RequestIdConflict` and `503 WorkerUnavailable` are the other stable codes.
+
 ## Python Reference App
 
 `webapp/main.py` (FastAPI, `bma-inventory-web`) implements `GET /`, `GET /health`, `GET /api/context`, `POST /api/chat` and `GET /api/runs/{run_id}/report.{md|html}` with the same bearer check (`hmac.compare_digest`), 16,384-byte POST limit and security headers. Its `/api/context` omits `agent_backend` and `model_processing_scope`, and history, Office export and investigations are not implemented. Use it for local verification only; the deployed API is `web/server.js`.
@@ -438,6 +455,23 @@ GET /api/procedures
 | 동시 채팅 스트림 | 서버 인스턴스당 2개 | `web/server.js` |
 | 동시 운영 조사 worker | 2개 | `InvestigationWorker.ReservedConcurrentExecutions` |
 | 에이전트 turn 시간 | `MAX_TURN_SECONDS`(기본 180, 현재 배포 300) | `web/settings.js` |
+
+## AI Document Studio API
+
+별도 서버인 `studio/web/server.js`가 `bma-office-studio` 스택의 `WebUrl`에서 동작합니다. 모든 `/api/*` 경로에 `Authorization: Bearer <APP_ACCESS_TOKEN>`이 필요하며, 인증 뒤 STS 계정을 확인합니다(`409 {"error":"AccountMismatch"}`). 요청과 작업의 전체 형식은 [studio/README.md](../studio/README.md#web-api)를 참고합니다.
+
+| Method and path | Request | Response |
+|-----------------|---------|----------|
+| `GET /api/config` | - | `{model, app_region, styles, limits, formats}` |
+| `POST /api/uploads` | 원본 body(`application/octet-stream`), `X-File-Name: encodeURIComponent(name)`, `.xlsx`, `.csv`, `.txt`, `.md`, 최대 5 MiB | `201 {upload: {id, name, size, extension}}` |
+| `POST /api/jobs` | `{request_id, upload_id?, notes?, prompt, outputs, style, language, source_job_id?}`, `outputs`는 `pptx`, `docx`, `chart`, `diagram` 중 선택 | `202 {job}`, 같은 `request_id`는 같은 작업을 반환 |
+| `GET /api/jobs?limit=10&cursor=` | - | `{jobs, next_cursor, complete}` |
+| `GET /api/jobs/{id}` | - | `{job}` |
+| `GET /api/jobs/{id}/events` | - | SSE `{type: "snapshot"\|"heartbeat"\|"complete", job}`, 오류는 `{type: "error", code}` |
+| `POST /api/jobs/{id}/cancel` | 빈 JSON 객체 `{}` | `202 {job}` |
+| `GET /api/jobs/{id}/artifacts/{artifact_id}[?view=inline]` | - | 파일 바이트, `inline`은 PNG, SVG, HTML에만 `sandbox` CSP와 함께 적용 |
+
+작업 `status`는 `queued`, `running`, `complete`, `partial`, `failed`, `cancelled`, `uncertain`이고 `phase`는 `queued`, `reading`, `analyzing`, `charting`, `diagramming`, `writing`, `packaging`, `done`입니다. 공개 작업 정보에는 BMA 세션 ID, S3 key, 자격증명이 포함되지 않습니다. 검증 오류는 `422 {"error":"<Code>"}`(예: `UnsupportedFile`, `InvalidOutputs`, `NotesTooLong`)를 반환하며, 그 밖의 고정 코드는 `413 FileTooLarge`, `404 JobNotFound`/`ArtifactNotFound`, `409 RequestIdConflict`, `503 WorkerUnavailable`입니다.
 
 ## Python 참조 앱
 

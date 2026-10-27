@@ -3,6 +3,8 @@
 .env.*
 .cache
 .venv
+.studio-venv
+**/node_modules
 **/__pycache__
 .pytest_cache
 web

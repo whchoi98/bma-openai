@@ -36,6 +36,13 @@ bash tests/run-all.sh
 # Run the UI with fixed sample data (no AWS API or model calls)
 npm run build --prefix web
 DATA_MODE=sample node web/index.js   # open http://127.0.0.1:3000
+
+# AI Document Studio (separate venv and node_modules link; no AWS API or model calls)
+uv venv --python 3.12 .studio-venv && uv pip install --python .studio-venv/bin/python -r studio/requirements.txt
+ln -s ../web/node_modules studio/node_modules
+.studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
+.venv/bin/python -m unittest studio.tests.test_infra
+node --test studio/tests/backend.test.js
 ```
 
 ## Project Overview
@@ -71,6 +78,7 @@ DATA_MODE=sample node web/index.js   # open http://127.0.0.1:3000
 - [README](../README.md), [architecture](architecture.md), [API reference](api-reference.md)
 - [Deployment runbook](runbooks/deploy-production.md), [API and IAM mapping](api-iam.md)
 - [BMA operations investigations](bma-investigations.md), [Data and scope](data-and-scope.md)
+- [AI Document Studio](document-studio.md) (Korean), [Studio module](../studio/CLAUDE.md), [Studio deployment runbook](runbooks/deploy-document-studio.md)
 
 ---
 
@@ -105,6 +113,13 @@ bash tests/run-all.sh
 # Run the UI with fixed sample data (no AWS API or model calls)
 npm run build --prefix web
 DATA_MODE=sample node web/index.js   # open http://127.0.0.1:3000
+
+# AI Document Studio (separate venv and node_modules link; no AWS API or model calls)
+uv venv --python 3.12 .studio-venv && uv pip install --python .studio-venv/bin/python -r studio/requirements.txt
+ln -s ../web/node_modules studio/node_modules
+.studio-venv/bin/python -m unittest studio.tests.test_input_data studio.tests.test_render studio.tests.test_job
+.venv/bin/python -m unittest studio.tests.test_infra
+node --test studio/tests/backend.test.js
 ```
 
 ## 프로젝트 개요
@@ -140,3 +155,4 @@ DATA_MODE=sample node web/index.js   # open http://127.0.0.1:3000
 - [README](../README.md), [아키텍처](architecture.md), [API 참조](api-reference.md)
 - [배포 런북](runbooks/deploy-production.md), [API·IAM 대응표](api-iam.md)
 - [BMA 운영 조사](bma-investigations.md), [데이터 처리와 범위](data-and-scope.md)
+- [AI Document Studio 사용 안내](document-studio.md), [Studio 모듈](../studio/CLAUDE.md), [Studio 배포 런북](runbooks/deploy-document-studio.md)

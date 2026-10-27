@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""Capture README screenshots from the sample-mode UI in Chromium; no AWS/model calls."""
+"""Capture README screenshots in Chromium; no AWS/model calls.
+
+desk: the Operations Desk in sample mode. studio: AI Document Studio served by
+studio/scripts/fixture_server.mjs from files rendered by the real renderers in .studio-venv.
+Usage: capture_screenshots.py [desk] [studio] [ko] [en]  (default: everything)
+"""
+import json
 import os
 import re
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from contextlib import contextmanager
@@ -14,6 +21,8 @@ from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs/images"
+STUDIO_PYTHON = ROOT / ".studio-venv/bin/python"
+STUDIO_FONT = ROOT / "studio/web/static/fonts/NanumSquareB.otf"
 DESKTOP = {"width": 1440, "height": 900}
 MOBILE = {"width": 390, "height": 844}
 MAX_HEIGHT = 1400
@@ -128,12 +137,69 @@ def capture(browser, base, language):
         raise AssertionError(errors)
 
 
+def capture_studio(browser, base, manifest, server, language):
+    page = browser.new_page(viewport=DESKTOP, locale="ko-KR" if language == "ko" else "en-US")
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.goto(base)
+    if language == "en":
+        page.locator("#language").select_option("en")
+    expect(page.locator("html")).to_have_attribute("lang", language)
+    page.locator("#access-key").fill(manifest["access_key"])
+    page.locator("#connect").click()
+    expect(page.locator("#model-info")).to_contain_text(manifest["model"])
+    expect(page.locator("#history .history-item")).to_have_count(1)
+
+    # 1. Brief: one spreadsheet, a plain-language request, outputs (PPTX/DOCX are preselected) and a style
+    page.locator("#file-input").set_input_files(manifest["draft"]["file"])
+    expect(page.locator("#selected-file")).to_be_visible()
+    page.locator("#prompt").fill(manifest["draft"]["prompt"])
+    page.locator('label.output-option:has(input[value="chart"])').click()
+    for value in ["pptx", "docx", "chart"]:
+        expect(page.locator(f'input[name="output"][value="{value}"]')).to_be_checked()
+    shot(page, f"{language}-studio-brief", page.locator(".editor-panel"))
+
+    # 2. Real phase names, elapsed time and the working animation (fixture holds on "writing")
+    page.locator("#generate").click()
+    expect(page.locator("#progress-panel")).to_be_visible()
+    expect(page.locator("#completed-steps li:not(.current)")).to_have_count(4)
+    shot(page, f"{language}-studio-progress", page.locator(".result-panel"))
+
+    # 3. Finished files and the sandboxed document content preview
+    server.stdin.write("complete\n")
+    server.stdin.flush()
+    expect(page.locator("#artifact-list .artifact-card")).to_have_count(5, timeout=15000)
+    figure = page.frame_locator("#preview-frame").locator("figure")
+    expect(figure.locator("img")).to_be_visible()
+    # The sidebar is one viewport high, so grow the viewport to the page instead of a full-page capture
+    page.set_viewport_size({"width": DESKTOP["width"],
+                            "height": page.evaluate("() => document.documentElement.scrollHeight")})
+    figure.scroll_into_view_if_needed()
+    shot(page, f"{language}-studio-result")
+    page.set_viewport_size(DESKTOP)
+
+    # 4. The earlier notes job in the AWS Operations Desk style: its workflow diagram file
+    page.locator("#history .history-item").nth(1).click()
+    expect(page.locator("#job-title")).to_have_text(manifest["history"][0]["title"])
+    page.locator('.artifact-card[data-artifact-id="diagram_1_png"] .artifact-main').click()
+    page.wait_for_function("() => { const image = document.querySelector('#preview-image');"
+                           " return !image.hidden && image.complete && image.naturalWidth > 0; }")
+    shot(page, f"{language}-studio-diagram", page.locator(".result-panel"))
+    page.close()
+    if errors:
+        raise AssertionError(errors)
+
+
+def free_port():
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
 @contextmanager
 def sample_server():
     """Start web/index.js in sample mode on a free port; its MemoryStore starts empty."""
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
+    port = free_port()
     environment = {**os.environ, "DATA_MODE": "sample", "APP_ACCESS_TOKEN": "",
                    "AWS_LAMBDA_HTTP_ENDPOINT": f"127.0.0.1:{port}",
                    "APP_REGION": "us-east-1", "TARGET_REGION": "ap-northeast-2"}
@@ -154,16 +220,43 @@ def sample_server():
         process.wait(timeout=5)
 
 
-def run(languages):
+@contextmanager
+def studio_server(language):
+    """Render Studio fixtures in .studio-venv, then serve them through the real Studio HTTP routes."""
+    with tempfile.TemporaryDirectory() as directory:
+        environment = {**os.environ, "MPLBACKEND": "Agg", "STUDIO_FONT_PATH": str(STUDIO_FONT)}
+        subprocess.run([str(STUDIO_PYTHON), "studio/scripts/render_fixtures.py", directory, language],
+                       cwd=ROOT, env=environment, check=True)
+        manifest_path = Path(directory, "fixtures.json")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        port = free_port()
+        process = subprocess.Popen(["node", "studio/scripts/fixture_server.mjs", str(manifest_path), str(port)],
+                                   cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        try:
+            if process.stdout.readline().strip() != "ready":
+                raise RuntimeError("Studio fixture server did not start.")
+            yield f"http://127.0.0.1:{port}", manifest, process
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+
+
+def run(targets, languages):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         for language in languages:
             # A fresh server per language keeps each history list in a single language
-            with sample_server() as base:
-                capture(browser, base, language)
+            if "desk" in targets:
+                with sample_server() as base:
+                    capture(browser, base, language)
+            if "studio" in targets:
+                with studio_server(language) as (base, manifest, server):
+                    capture_studio(browser, base, manifest, server, language)
         browser.close()
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:] or ["ko", "en"])
+    arguments = sys.argv[1:]
+    run([name for name in arguments if name in {"desk", "studio"}] or ["desk", "studio"],
+        [name for name in arguments if name in {"ko", "en"}] or ["ko", "en"])

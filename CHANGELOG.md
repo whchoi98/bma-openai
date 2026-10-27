@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add operations investigations with follow-up questions in the same BMA session, reconnection recovery, and a versioned procedure catalog.
 - Add the optional `AGENT_BACKEND=converse` path that uses the `global.openai.gpt-6-luna` inference profile.
 - Add CloudFormation bootstrap and application stacks for the Runtime, Web Function, investigation worker, IAM roles, and app S3 bucket.
+- Add AI Document Studio, a separate demo that turns one XLSX/CSV/TXT/MD file or pasted notes into charts, diagrams, and editable PPTX/DOCX through BMA with `openai.gpt-6.1-sol`.
+- Add a job-bound document MCP with 6 tools that aggregate source values in code and render PNG/SVG, PPTX/DOCX, and a sandboxed HTML preview in three styles.
+- Add separate Studio stacks (`bma-office-build`, `bma-office-studio`) with their own Web Function, worker, document Runtime, roles, and 7-day data bucket, without AWS resource-query permissions.
 
 ### Changed
 
@@ -54,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 같은 BMA 세션의 후속 질문, 재접속 복구, 버전이 있는 절차 카탈로그를 갖춘 운영 조사 추가
 - `global.openai.gpt-6-luna` 추론 프로파일을 사용하는 선택형 `AGENT_BACKEND=converse` 경로 추가
 - Runtime, Web Function, 조사 worker, IAM 역할, 앱 S3 버킷용 CloudFormation bootstrap 스택과 애플리케이션 스택 추가
+- 엑셀/CSV/TXT/MD 파일 하나나 붙여 넣은 메모로 BMA(`openai.gpt-6.1-sol`)를 통해 차트, 다이어그램, 편집 가능한 PPTX/DOCX를 만드는 별도 데모 AI Document Studio 추가
+- 원본 값을 코드로 집계하고 PNG/SVG, PPTX/DOCX, sandbox HTML 미리보기를 세 가지 스타일로 만드는 작업 고정 문서 MCP 도구 6개 추가
+- 자체 Web Function, worker, 문서 Runtime, 역할, 7일 보관 데이터 버킷을 갖추고 AWS 리소스 조회 권한이 없는 별도 Studio 스택(`bma-office-build`, `bma-office-studio`) 추가
 
 ### Changed
 
