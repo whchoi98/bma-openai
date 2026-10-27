@@ -7,7 +7,7 @@ shell scripts (`setup.sh`, `install-hooks.sh`). Evidence is written to `artifact
 ## Key Files
 | Group | Scripts | AWS access |
 |---|---|---|
-| Build (local) | `export_web_contract.py`, `build_web.py`, `prepare_runtime.py`, `check_runtime.py`, `check_browser.py`, `check_markdown_browser.py` | none |
+| Build (local) | `export_web_contract.py`, `build_web.py`, `prepare_runtime.py`, `check_runtime.py`, `check_browser.py`, `check_markdown_browser.py`, `capture_screenshots.py` (README images in `docs/images/`, sample mode) | none |
 | Preflight | `preflight.py` (`--list-models`), `check_network.py` | read-only STS / model list |
 | Deploy | `deployment_parameters.py`, `deploy_east_region.py`, `deploy_investigations.py` | writes stacks |
 | Live verify | `live_smoke.py`, `verify_deployed.py`, `verify_deployed_browser.py`, `verify_extended_deployed.py`, `verify_extended_browser.py`, `verify_investigations.py`, `verify_investigations_browser.py` | bounded live queries + model calls |

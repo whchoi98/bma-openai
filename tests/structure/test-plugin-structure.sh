@@ -96,6 +96,16 @@ for ref in docs/reference/*.md; do
 done
 assert_eq "Reference Code Pointers resolve to existing paths" "" "${BAD_POINTERS# }"
 
+# --- README screenshots: every referenced image exists, each language has the same set ---
+MISSING_IMAGES=""
+for image in $(grep -oE 'docs/images/[A-Za-z0-9_-]+\.png' README.md | sort -u); do
+    [ -f "$image" ] || MISSING_IMAGES+=" $image"
+done
+assert_eq "README images exist" "" "${MISSING_IMAGES# }"
+EN_IMAGES=$(grep -oE 'docs/images/en-[a-z-]+\.png' README.md | sed 's#.*/en-##' | sort -u | tr '\n' ' ')
+KO_IMAGES=$(grep -oE 'docs/images/ko-[a-z-]+\.png' README.md | sed 's#.*/ko-##' | sort -u | tr '\n' ' ')
+assert_eq "README English and Korean sections show the same screenshots" "$EN_IMAGES" "$KO_IMAGES"
+
 # --- Bilingual documents use ASCII anchors with sentinels ---
 for doc in README.md CHANGELOG.md docs/architecture.md docs/onboarding.md docs/api-reference.md \
            docs/runbooks/deploy-production.md docs/decisions/ADR-001-read-only-tool-boundary.md; do

@@ -28,6 +28,8 @@ VPC/EBS/ECR with relationship diagrams, report history with DOCX/PPTX, and confi
 security-setting checks for S3/DynamoDB/ElastiCache/OpenSearch/MSK. It currently supports
 **24 MCP tools, 4 Skills, and 13 service categories**.
 
+![Operations Desk main screen: account and region card, supported services, question form, and a completed answer](docs/images/en-overview.png)
+
 ## Features
 
 - **Read-only Seoul inventory** — Query `ap-northeast-2` control APIs through 24 registered MCP tools only after STS confirms the expected account; no arbitrary-command or generic boto3 operation tools exist.
@@ -35,6 +37,33 @@ security-setting checks for S3/DynamoDB/ElastiCache/OpenSearch/MSK. It currently
 - **Reports with account masking** — Render saved results as Markdown/HTML/DOCX/PPTX reports that show only the last 3 digits of the account ID, without re-querying the model or resources.
 - **Operations investigations** — Send follow-up questions to the same BMA session, recover the same run after reconnecting, and track four versioned operating procedures.
 - **Relationship and security views** — Connect only actually observed resources in relationship diagrams and classify security checks as met, needs review, or unverified.
+
+### Screenshots
+
+Captured from sample mode (`DATA_MODE=sample`) with fixed synthetic data, so no AWS API or model was called
+and no real resource appears. Regenerate them with `.venv/bin/python scripts/capture_screenshots.py`.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/en-answer.png" alt="Answer panel with a Markdown result and report download buttons"><br><sub><b>Streaming answer</b> — Markdown rendering of public text deltas with MD/HTML/DOCX/PPTX downloads</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/en-trace.png" alt="Tool activity table with duration, result count, status, and AWS API calls"><br><sub><b>Tool activity</b> — every MCP call with region, duration, result count, and the AWS APIs it used</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/en-topology.png" alt="Resource relationship graph of a VPC with subnets, gateways, endpoints, and security groups"><br><sub><b>Resource relationships</b> — only observed configuration references, with the selected node's normalized fields</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/en-security.png" alt="Security configuration check table with meets and needs-review results"><br><sub><b>Security configuration checks</b> — security groups, RDS, and EBS settings classified as meets, needs review, or unverified</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/en-report-preview.png" alt="HTML report preview dialog with service status table"><br><sub><b>HTML report preview</b> — the saved report in a sandboxed iframe; opening it never re-queries AWS or the model</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/en-history.png" alt="Report history list with prompts, services, and status"><br><sub><b>Report history</b> — saved runs with their services and status, loaded without a new query</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/en-investigation.png" alt="Operations investigation with procedure steps, follow-up form, and tool activity"><br><sub><b>Operations investigation</b> — versioned procedure, per-step status, follow-up questions in the same session</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/en-mobile.png" alt="Mobile layout at 390 pixels wide"><br><sub><b>Mobile layout</b> — 390 px viewport without horizontal scrolling</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/en-dark.png" alt="Dark mode with an operations investigation result"><br><sub><b>Dark mode and English UI</b> — theme and language switch from the top bar</sub></td>
+  </tr>
+</table>
 
 ## Architecture
 
@@ -147,6 +176,7 @@ bma-openai/
 ├── aws_inventory/        # Account checks, fixed-region boto3 clients, 24 MCP tools, normalization and limits
 ├── docs/                 # Design, deployment, data scope, and investigation guides
 │   ├── architecture.md   # System architecture document
+│   ├── images/           # README screenshots from scripts/capture_screenshots.py
 │   ├── reference/        # Layer-by-layer implementation references
 │   ├── runbooks/         # Operational runbooks
 │   └── decisions/        # Architecture Decision Records
@@ -366,6 +396,8 @@ AI-Powered AWS Operations Desk는 자연어 질문을 BMA(Bedrock Managed Agents
 VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache/OpenSearch/MSK의
 구성 조회와 보안 설정 점검입니다. 현재 **24개 MCP 도구, 4개 Skills, 13개 서비스 범주**를 지원합니다.
 
+![Operations Desk 기본 화면: 계정과 리전 카드, 지원 서비스, 질문 입력, 완료된 답변](docs/images/ko-overview.png)
+
 ## 주요 기능
 
 - **읽기 전용 서울 인벤토리** — STS로 기대 계정을 확인한 뒤에만 등록된 24개 MCP 도구로 `ap-northeast-2` 제어 API를 조회합니다. 임의 명령 실행 도구나 범용 boto3 operation 도구는 없습니다.
@@ -373,6 +405,33 @@ VPC/EBS/ECR과 관계도, 보고서 이력과 DOCX/PPTX, S3/DynamoDB/ElastiCache
 - **계정 마스킹 보고서** — 저장된 결과를 Markdown/HTML/DOCX/PPTX 보고서로 렌더링하며 계정 ID는 마지막 3자리만 표시합니다. 모델이나 리소스를 다시 조회하지 않습니다.
 - **운영 조사** — 같은 BMA 세션에 후속 질문을 보내고, 재접속 후 같은 실행을 복구하며, 버전이 있는 네 가지 운영 절차를 추적합니다.
 - **관계도와 보안 점검** — 관계도는 실제 관측된 리소스만 연결하고, 보안 구성 점검은 기준 충족, 확인 필요, 미확인을 구분합니다.
+
+### 화면
+
+고정된 합성 데이터를 쓰는 샘플 모드(`DATA_MODE=sample`)에서 캡처했습니다. AWS API와 모델을 호출하지 않았고
+실제 리소스는 나오지 않습니다. `.venv/bin/python scripts/capture_screenshots.py`로 다시 만들 수 있습니다.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/ko-answer.png" alt="Markdown 답변과 보고서 다운로드 버튼이 있는 조회 결과 패널"><br><sub><b>스트리밍 답변</b> — 공개 text delta를 Markdown으로 렌더링하고 MD/HTML/DOCX/PPTX로 내려받습니다</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/ko-trace.png" alt="소요 시간, 결과 수, 상태, AWS API 호출을 보여 주는 실행 기록 표"><br><sub><b>실행 기록</b> — MCP 호출마다 리전, 소요 시간, 결과 수, 사용한 AWS API를 표시합니다</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/ko-topology.png" alt="서브넷, 게이트웨이, 엔드포인트, 보안 그룹이 연결된 VPC 관계도"><br><sub><b>리소스 관계도</b> — 실제 관측된 구성 참조만 연결하고, 선택한 노드의 정규화된 필드를 보여 줍니다</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/ko-security.png" alt="기준 충족과 확인 필요 결과가 있는 보안 구성 점검 표"><br><sub><b>보안 구성 점검</b> — 보안 그룹, RDS, EBS 설정을 기준 충족, 확인 필요, 미확인으로 구분합니다</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/ko-report-preview.png" alt="서비스별 현황 표가 있는 HTML 보고서 미리보기 창"><br><sub><b>HTML 보고서 미리보기</b> — 저장된 보고서를 sandbox iframe에 표시하며, 열어도 AWS나 모델을 다시 호출하지 않습니다</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/ko-history.png" alt="질문, 서비스, 상태가 표시된 보고서 이력 목록"><br><sub><b>보고서 이력</b> — 저장된 실행을 서비스와 상태와 함께 보여 주며, 새 조회 없이 불러옵니다</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/images/ko-investigation.png" alt="절차 단계, 후속 질문 입력, 실행 기록이 있는 운영 조사 화면"><br><sub><b>운영 조사</b> — 버전이 있는 절차, 단계별 상태, 같은 세션에서 이어지는 후속 질문</sub></td>
+    <td width="50%" valign="top"><img src="docs/images/ko-mobile.png" alt="너비 390픽셀 모바일 화면"><br><sub><b>모바일 화면</b> — 390px 화면에서 가로 스크롤 없이 표시합니다</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/ko-dark.png" alt="운영 조사 결과가 표시된 다크 모드 화면"><br><sub><b>다크 모드와 한국어 화면</b> — 상단 막대에서 테마와 언어를 전환합니다</sub></td>
+  </tr>
+</table>
 
 ## 아키텍처
 
@@ -484,6 +543,7 @@ bma-openai/
 ├── aws_inventory/        # 계정 검증, 고정 리전 boto3 클라이언트, 24개 MCP 도구, 정규화와 한도
 ├── docs/                 # 설계, 배포, 데이터 범위, 운영 조사 문서
 │   ├── architecture.md   # 시스템 아키텍처 문서
+│   ├── images/           # scripts/capture_screenshots.py로 만든 README 스크린샷
 │   ├── reference/        # 계층별 구현 참조 문서
 │   ├── runbooks/         # 운영 런북
 │   └── decisions/        # 아키텍처 결정 기록(ADR)
