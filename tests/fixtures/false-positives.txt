@@ -1,0 +1,10 @@
+dGhpcyBpcyBhIHRlc3Q=
+password = ""
+APP_ACCESS_TOKEN=
+EXPECTED_ACCOUNT_ID=
+aws_secret_access_key="testing"
+akiaiosfodnn7example
+AKIA_PREFIX_IS_NOT_A_KEY
+secret_name = os.environ["SECRET_NAME"]
+api_key: ${API_KEY}
+BMA_SESSION_ROLE_ARN=arn:aws:iam::000000000000:role/example

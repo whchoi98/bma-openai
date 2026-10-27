@@ -1,0 +1,2153 @@
+{
+  "get_account_context": {
+    "schema_version": "1.0",
+    "tool": "get_account_context",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "sts",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "account_id": "000000000000",
+        "account_verified": true,
+        "app_region": "us-east-1",
+        "target_region": "ap-northeast-2",
+        "supported_services": [
+          "ec2",
+          "rds",
+          "ecs",
+          "lambda",
+          "cloudwatch",
+          "vpc",
+          "ebs",
+          "ecr",
+          "s3",
+          "dynamodb",
+          "elasticache",
+          "opensearch",
+          "msk"
+        ],
+        "lambda_scope": "event_functions_only",
+        "data_processing_region": "us-east-1",
+        "data_processing_scope": "app_region"
+      }
+    ],
+    "count": 1,
+    "resource_count": 0,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_ec2_instances": {
+    "schema_version": "1.0",
+    "tool": "list_ec2_instances",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "ec2",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeInstances",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "i-00000000000000001",
+      "i-00000000000000002"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "i-00000000000000001",
+        "kind": "ec2",
+        "vpc_id": "vpc-00000000000000001",
+        "subnet_id": "subnet-00000000000000001",
+        "security_group_ids": [],
+        "relationships_truncated": false,
+        "instance_type": "t3.small",
+        "state": "running",
+        "availability_zone": "ap-northeast-2a",
+        "launch_time": null,
+        "application_health": "not_assessed"
+      },
+      {
+        "id": "i-00000000000000002",
+        "kind": "ec2",
+        "vpc_id": null,
+        "subnet_id": null,
+        "security_group_ids": [],
+        "relationships_truncated": false,
+        "instance_type": "t3.medium",
+        "state": "running",
+        "availability_zone": "ap-northeast-2c",
+        "launch_time": null,
+        "application_health": "not_assessed"
+      }
+    ],
+    "count": 2,
+    "resource_count": 2,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_ec2_instance_health": {
+    "schema_version": "1.0",
+    "tool": "get_ec2_instance_health",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "ec2",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeInstanceStatus",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "i-00000000000000001",
+      "i-00000000000000002"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "requested_resource_ids": [
+        "i-00000000000000001",
+        "i-00000000000000002"
+      ]
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "i-00000000000000001",
+        "state": "running",
+        "instance_status": "ok",
+        "system_status": "ok",
+        "attached_ebs_status": null,
+        "availability_zone": null,
+        "application_health": "not_assessed"
+      },
+      {
+        "id": "i-00000000000000002",
+        "state": "running",
+        "instance_status": "impaired",
+        "system_status": "ok",
+        "attached_ebs_status": null,
+        "availability_zone": null,
+        "application_health": "not_assessed"
+      }
+    ],
+    "count": 2,
+    "resource_count": 2,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_rds_instances": {
+    "schema_version": "1.0",
+    "tool": "list_rds_instances",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "rds",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "rds",
+        "api": "DescribeDBInstances",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-orders"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "sample-orders",
+        "kind": "rds",
+        "arn": "arn:aws:rds:ap-northeast-2:000000000000:db:sample-orders",
+        "state": "available",
+        "engine": "postgres",
+        "engine_version": "16",
+        "instance_class": "db.t4g.medium",
+        "multi_az": true,
+        "availability_zone": null,
+        "vpc_id": "vpc-00000000000000001",
+        "subnet_ids": [],
+        "relationships_truncated": false,
+        "storage_encrypted": true,
+        "publicly_accessible": false,
+        "security_checks": [
+          {
+            "id": "rds_encrypted",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "rds_not_public",
+            "status": "pass",
+            "severity": "high"
+          }
+        ],
+        "application_health": "not_assessed"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_ecs_clusters": {
+    "schema_version": "1.0",
+    "tool": "list_ecs_clusters",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "ecs",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ecs",
+        "api": "ListClusters",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "arn:aws:ecs:ap-northeast-2:000000000000:cluster/sample"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "arn:aws:ecs:ap-northeast-2:000000000000:cluster/sample"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_ecs_services": {
+    "schema_version": "1.0",
+    "tool": "list_ecs_services",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "ecs",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ecs",
+        "api": "ListServices",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "arn:aws:ecs:ap-northeast-2:000000000000:service/sample/api"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "cluster": "sample"
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "arn:aws:ecs:ap-northeast-2:000000000000:service/sample/api",
+        "cluster": "sample"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_ecs_service_health": {
+    "schema_version": "1.0",
+    "tool": "get_ecs_service_health",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "ecs",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ecs",
+        "api": "DescribeServices",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "arn:aws:ecs:ap-northeast-2:000000000000:service/sample/api"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "cluster": "sample",
+      "requested_resource_ids": [
+        "arn:aws:ecs:ap-northeast-2:000000000000:service/sample/api"
+      ]
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "arn:aws:ecs:ap-northeast-2:000000000000:service/sample/api",
+        "name": "api",
+        "cluster_arn": "arn:aws:ecs:ap-northeast-2:000000000000:cluster/sample",
+        "state": "ACTIVE",
+        "desired_count": 2,
+        "running_count": 1,
+        "pending_count": 1,
+        "deployments": [
+          {
+            "id": "sample-deployment",
+            "status": "PRIMARY",
+            "rollout_state": "IN_PROGRESS",
+            "desired_count": 2,
+            "running_count": 1,
+            "pending_count": 1,
+            "created_at": null,
+            "updated_at": null
+          }
+        ],
+        "deployments_truncated": false,
+        "application_health": "not_assessed"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_lambda_functions": {
+    "schema_version": "1.0",
+    "tool": "list_lambda_functions",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "lambda",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "lambda",
+        "api": "ListFunctions",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-worker",
+      "sample-idle"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "function_kind": "event"
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "sample-worker",
+        "arn": "arn:aws:lambda:ap-northeast-2:000000000000:function:sample-worker",
+        "function_kind": "event",
+        "runtime": "python3.12",
+        "package_type": null,
+        "memory_mb": 256,
+        "timeout_seconds": 30,
+        "last_modified": null,
+        "state": null,
+        "last_update_status": null,
+        "state_evidence": "not_returned_by_ListFunctions",
+        "application_health": "not_assessed"
+      },
+      {
+        "id": "sample-idle",
+        "arn": "arn:aws:lambda:ap-northeast-2:000000000000:function:sample-idle",
+        "function_kind": "event",
+        "runtime": "python3.12",
+        "package_type": null,
+        "memory_mb": 128,
+        "timeout_seconds": 10,
+        "last_modified": null,
+        "state": null,
+        "last_update_status": null,
+        "state_evidence": "not_returned_by_ListFunctions",
+        "application_health": "not_assessed"
+      }
+    ],
+    "count": 2,
+    "resource_count": 2,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_lambda_function_health": {
+    "schema_version": "1.0",
+    "tool": "get_lambda_function_health",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "lambda",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "lambda",
+        "api": "GetFunctionConfiguration",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-worker"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "function_kind": "event"
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "sample-worker",
+        "arn": null,
+        "function_kind": "event",
+        "runtime": null,
+        "package_type": null,
+        "memory_mb": null,
+        "timeout_seconds": null,
+        "last_modified": null,
+        "state": "Active",
+        "last_update_status": "Successful",
+        "state_evidence": "GetFunctionConfiguration",
+        "application_health": "not_assessed"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_cloudwatch_alarms": {
+    "schema_version": "1.0",
+    "tool": "list_cloudwatch_alarms",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "cloudwatch",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "cloudwatch",
+        "api": "DescribeAlarms",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "arn:aws:cloudwatch:ap-northeast-2:000000000000:alarm:sample-worker-errors"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "alarm_state": "ALARM"
+    },
+    "notes": [],
+    "data": [
+      {
+        "id": "arn:aws:cloudwatch:ap-northeast-2:000000000000:alarm:sample-worker-errors",
+        "name": "sample-worker-errors",
+        "alarm_type": "metric",
+        "state": "ALARM",
+        "state_updated_at": null,
+        "namespace": "AWS/Lambda",
+        "metric_name": "Errors",
+        "comparison_operator": "GreaterThanOrEqualToThreshold",
+        "threshold": 1.0,
+        "evaluation_periods": 1,
+        "treat_missing_data": "missing",
+        "application_health": "not_assessed"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_vpcs": {
+    "schema_version": "1.0",
+    "tool": "list_vpcs",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "vpc",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeVpcs",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "vpc-00000000000000001"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "vpc",
+        "id": "vpc-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "state": "available",
+        "cidr_block": "10.0.0.0/16",
+        "is_default": false,
+        "instance_tenancy": "default"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_vpc_topology": {
+    "schema_version": "1.0",
+    "tool": "get_vpc_topology",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "vpc",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeVpcs",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeSubnets",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeRouteTables",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeSecurityGroups",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeInternetGateways",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeNatGateways",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeVpcEndpoints",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "vpc-00000000000000001",
+      "subnet-00000000000000001",
+      "subnet-00000000000000002",
+      "rtb-00000000000000001",
+      "sg-00000000000000001",
+      "sg-00000000000000002",
+      "igw-00000000000000001",
+      "nat-00000000000000001",
+      "vpce-00000000000000001"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "vpc_id": "vpc-00000000000000001",
+      "kind_coverage": {
+        "vpc": "complete",
+        "subnet": "complete",
+        "route_table": "complete",
+        "security_group": "complete",
+        "internet_gateway": "complete",
+        "nat_gateway": "complete",
+        "vpc_endpoint": "complete"
+      },
+      "omitted_kinds": [],
+      "truncated_kinds": [],
+      "max_ingress_rules": 50,
+      "max_relationships": 50
+    },
+    "notes": [
+      "Only returned IDs and explicit associations are observed. No route reachability, implicit main-route associations, or application health is inferred."
+    ],
+    "data": [
+      {
+        "kind": "vpc",
+        "id": "vpc-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "state": "available",
+        "cidr_block": "10.0.0.0/16",
+        "is_default": false,
+        "instance_tenancy": "default"
+      },
+      {
+        "kind": "subnet",
+        "id": "subnet-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "state": "available",
+        "cidr_block": "10.0.1.0/24",
+        "availability_zone": "ap-northeast-2a",
+        "available_ip_address_count": 240,
+        "map_public_ip_on_launch": true
+      },
+      {
+        "kind": "subnet",
+        "id": "subnet-00000000000000002",
+        "vpc_id": "vpc-00000000000000001",
+        "state": "available",
+        "cidr_block": "10.0.2.0/24",
+        "availability_zone": "ap-northeast-2c",
+        "available_ip_address_count": 240,
+        "map_public_ip_on_launch": false
+      },
+      {
+        "kind": "route_table",
+        "id": "rtb-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "subnet_ids": [
+          "subnet-00000000000000001"
+        ],
+        "main": false,
+        "route_count": 1,
+        "relationships_complete": true,
+        "relationships_truncated": false
+      },
+      {
+        "kind": "security_group",
+        "id": "sg-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "ingress_rules": [
+          {
+            "protocol": "tcp",
+            "from_port": 22,
+            "to_port": 22,
+            "source_type": "ipv4",
+            "source": "0.0.0.0/0",
+            "unrestricted": true
+          },
+          {
+            "protocol": "tcp",
+            "from_port": 443,
+            "to_port": 443,
+            "source_type": "ipv4",
+            "source": "0.0.0.0/0",
+            "unrestricted": true
+          }
+        ],
+        "ingress_complete": true,
+        "ingress_truncated": false,
+        "security_checks": [
+          {
+            "id": "sg_no_public_ssh",
+            "status": "fail",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_rdp",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_all_traffic",
+            "status": "pass",
+            "severity": "high"
+          }
+        ]
+      },
+      {
+        "kind": "security_group",
+        "id": "sg-00000000000000002",
+        "vpc_id": "vpc-00000000000000001",
+        "ingress_rules": [
+          {
+            "protocol": "tcp",
+            "from_port": 5432,
+            "to_port": 5432,
+            "source_type": "security_group",
+            "source": "sg-00000000000000001",
+            "unrestricted": false
+          }
+        ],
+        "ingress_complete": true,
+        "ingress_truncated": false,
+        "security_checks": [
+          {
+            "id": "sg_no_public_ssh",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_rdp",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_all_traffic",
+            "status": "pass",
+            "severity": "high"
+          }
+        ]
+      },
+      {
+        "kind": "internet_gateway",
+        "id": "igw-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "state": "available"
+      },
+      {
+        "kind": "nat_gateway",
+        "id": "nat-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "subnet_id": "subnet-00000000000000001",
+        "state": "available",
+        "connectivity_type": "public"
+      },
+      {
+        "kind": "vpc_endpoint",
+        "id": "vpce-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "subnet_ids": [
+          "subnet-00000000000000002"
+        ],
+        "state": "available",
+        "endpoint_type": "Interface",
+        "private_dns_enabled": true,
+        "relationships_complete": true,
+        "relationships_truncated": false
+      }
+    ],
+    "count": 9,
+    "resource_count": 9,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_security_groups": {
+    "schema_version": "1.0",
+    "tool": "list_security_groups",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "vpc",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeSecurityGroups",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sg-00000000000000001",
+      "sg-00000000000000002"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "vpc_id": "vpc-00000000000000001",
+      "max_ingress_rules": 50
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "security_group",
+        "id": "sg-00000000000000001",
+        "vpc_id": "vpc-00000000000000001",
+        "ingress_rules": [
+          {
+            "protocol": "tcp",
+            "from_port": 22,
+            "to_port": 22,
+            "source_type": "ipv4",
+            "source": "0.0.0.0/0",
+            "unrestricted": true
+          },
+          {
+            "protocol": "tcp",
+            "from_port": 443,
+            "to_port": 443,
+            "source_type": "ipv4",
+            "source": "0.0.0.0/0",
+            "unrestricted": true
+          }
+        ],
+        "ingress_complete": true,
+        "ingress_truncated": false,
+        "security_checks": [
+          {
+            "id": "sg_no_public_ssh",
+            "status": "fail",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_rdp",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_all_traffic",
+            "status": "pass",
+            "severity": "high"
+          }
+        ]
+      },
+      {
+        "kind": "security_group",
+        "id": "sg-00000000000000002",
+        "vpc_id": "vpc-00000000000000001",
+        "ingress_rules": [
+          {
+            "protocol": "tcp",
+            "from_port": 5432,
+            "to_port": 5432,
+            "source_type": "security_group",
+            "source": "sg-00000000000000001",
+            "unrestricted": false
+          }
+        ],
+        "ingress_complete": true,
+        "ingress_truncated": false,
+        "security_checks": [
+          {
+            "id": "sg_no_public_ssh",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_rdp",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "sg_no_public_all_traffic",
+            "status": "pass",
+            "severity": "high"
+          }
+        ]
+      }
+    ],
+    "count": 2,
+    "resource_count": 2,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_ebs_volumes": {
+    "schema_version": "1.0",
+    "tool": "list_ebs_volumes",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "ebs",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ec2",
+        "api": "DescribeVolumes",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "vol-00000000000000001",
+      "vol-00000000000000002"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "ebs_volume",
+        "id": "vol-00000000000000001",
+        "state": "in-use",
+        "volume_type": "gp3",
+        "size_gib": 20,
+        "availability_zone": "ap-northeast-2a",
+        "encrypted": true,
+        "iops": 3000,
+        "throughput_mibps": 125,
+        "multi_attach_enabled": false,
+        "created_at": null,
+        "attached_instance_ids": [
+          "i-00000000000000001"
+        ],
+        "attachments_complete": true,
+        "attachments_truncated": false,
+        "security_checks": [
+          {
+            "id": "ebs_encrypted",
+            "status": "pass",
+            "severity": "high"
+          }
+        ]
+      },
+      {
+        "kind": "ebs_volume",
+        "id": "vol-00000000000000002",
+        "state": "available",
+        "volume_type": "gp3",
+        "size_gib": 10,
+        "availability_zone": "ap-northeast-2c",
+        "encrypted": false,
+        "iops": 3000,
+        "throughput_mibps": 125,
+        "multi_attach_enabled": false,
+        "created_at": null,
+        "attached_instance_ids": [],
+        "attachments_complete": true,
+        "attachments_truncated": false,
+        "security_checks": [
+          {
+            "id": "ebs_encrypted",
+            "status": "fail",
+            "severity": "high"
+          }
+        ]
+      }
+    ],
+    "count": 2,
+    "resource_count": 2,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_ecr_repositories": {
+    "schema_version": "1.0",
+    "tool": "list_ecr_repositories",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "ecr",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "ecr",
+        "api": "DescribeRepositories",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample/api",
+      "sample/worker"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [
+      "scan_on_push is the returned repository setting; registry scanning and image findings are not assessed."
+    ],
+    "data": [
+      {
+        "kind": "ecr_repository",
+        "id": "sample/api",
+        "image_tag_mutability": "IMMUTABLE",
+        "scan_on_push": true,
+        "encryption_type": "AES256",
+        "created_at": null,
+        "security_checks": [
+          {
+            "id": "ecr_encrypted",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "ecr_immutable_tags",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "ecr_scan_on_push",
+            "status": "pass",
+            "severity": "info"
+          }
+        ]
+      },
+      {
+        "kind": "ecr_repository",
+        "id": "sample/worker",
+        "image_tag_mutability": "MUTABLE",
+        "scan_on_push": false,
+        "encryption_type": "KMS",
+        "created_at": null,
+        "security_checks": [
+          {
+            "id": "ecr_encrypted",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "ecr_immutable_tags",
+            "status": "fail",
+            "severity": "medium"
+          },
+          {
+            "id": "ecr_scan_on_push",
+            "status": "fail",
+            "severity": "info"
+          }
+        ]
+      }
+    ],
+    "count": 2,
+    "resource_count": 2,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_s3_buckets": {
+    "schema_version": "1.0",
+    "tool": "list_s3_buckets",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "s3",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "s3",
+        "api": "ListBuckets",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-inventory-config"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [
+      "Owned general-purpose buckets only; directory buckets are not queried."
+    ],
+    "data": [
+      {
+        "kind": "s3_bucket",
+        "id": "sample-inventory-config",
+        "name": "sample-inventory-config",
+        "region": "ap-northeast-2",
+        "created_at": null
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_s3_bucket_configuration": {
+    "schema_version": "1.0",
+    "tool": "get_s3_bucket_configuration",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "s3",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "s3",
+        "api": "ListBuckets",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "s3",
+        "api": "GetBucketEncryption",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "s3",
+        "api": "GetPublicAccessBlock",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "s3",
+        "api": "GetBucketPolicyStatus",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "s3",
+        "api": "GetBucketVersioning",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-inventory-config"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "requested_resource_ids": [
+        "sample-inventory-config"
+      ]
+    },
+    "notes": [
+      "Bucket-level flags only; account access blocks, ACLs, access points, and effective permissions are not assessed."
+    ],
+    "data": [
+      {
+        "kind": "s3_bucket",
+        "id": "sample-inventory-config",
+        "name": "sample-inventory-config",
+        "region": "ap-northeast-2",
+        "created_at": null,
+        "block_public_acls": true,
+        "ignore_public_acls": true,
+        "block_public_policy": true,
+        "restrict_public_buckets": true,
+        "encryption_enabled": true,
+        "encryption_algorithms": [
+          "AES256"
+        ],
+        "policy_public": false,
+        "versioning_status": "Enabled",
+        "security_checks": [
+          {
+            "id": "s3_encryption_enabled",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "s3_bucket_public_access_block",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "s3_bucket_policy_not_public",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "s3_versioning_enabled",
+            "status": "pass",
+            "severity": "medium"
+          }
+        ]
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_dynamodb_tables": {
+    "schema_version": "1.0",
+    "tool": "list_dynamodb_tables",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "dynamodb",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "dynamodb",
+        "api": "ListTables",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-orders"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "dynamodb_table",
+        "id": "sample-orders",
+        "name": "sample-orders"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_dynamodb_table_configuration": {
+    "schema_version": "1.0",
+    "tool": "get_dynamodb_table_configuration",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "dynamodb",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "dynamodb",
+        "api": "DescribeTable",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "dynamodb",
+        "api": "DescribeContinuousBackups",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-orders"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "requested_resource_ids": [
+        "sample-orders"
+      ]
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "dynamodb_table",
+        "id": "sample-orders",
+        "name": "sample-orders",
+        "arn": "arn:aws:dynamodb:ap-northeast-2:000000000000:table/sample-orders",
+        "state": "ACTIVE",
+        "created_at": null,
+        "billing_mode": "PAY_PER_REQUEST",
+        "encryption_status": "ENABLED",
+        "deletion_protection_enabled": true,
+        "item_count": 12,
+        "table_size_bytes": 4096,
+        "read_capacity_units": null,
+        "write_capacity_units": null,
+        "stream_enabled": null,
+        "point_in_time_recovery": "DISABLED",
+        "security_checks": [
+          {
+            "id": "dynamodb_encryption_enabled",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "dynamodb_point_in_time_recovery",
+            "status": "fail",
+            "severity": "medium"
+          }
+        ]
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_elasticache_clusters": {
+    "schema_version": "1.0",
+    "tool": "list_elasticache_clusters",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "elasticache",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "elasticache",
+        "api": "DescribeCacheClusters",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-cache"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [
+      "Provisioned cache clusters only. Serverless caches and RBAC are not queried; AUTH-token flags do not establish effective authentication."
+    ],
+    "data": [
+      {
+        "kind": "elasticache_cluster",
+        "id": "sample-cache",
+        "arn": "arn:aws:elasticache:ap-northeast-2:000000000000:cluster:sample-cache",
+        "engine": "valkey",
+        "engine_version": "8.2",
+        "state": "available",
+        "node_type": "cache.t4g.small",
+        "node_count": 1,
+        "replication_group_id": null,
+        "availability_zone": null,
+        "created_at": null,
+        "encryption_at_rest_enabled": true,
+        "transit_encryption_enabled": true,
+        "auth_token_enabled": false,
+        "auto_minor_version_upgrade": null,
+        "security_checks": [
+          {
+            "id": "elasticache_encryption_at_rest",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "elasticache_encryption_in_transit",
+            "status": "pass",
+            "severity": "medium"
+          }
+        ]
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_opensearch_domains": {
+    "schema_version": "1.0",
+    "tool": "list_opensearch_domains",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "opensearch",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "opensearch",
+        "api": "ListDomainNames",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-search"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "opensearch_domain",
+        "id": "sample-search",
+        "name": "sample-search",
+        "engine_type": "OpenSearch"
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_opensearch_domain_configuration": {
+    "schema_version": "1.0",
+    "tool": "get_opensearch_domain_configuration",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "opensearch",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "opensearch",
+        "api": "DescribeDomain",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-search"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "requested_resource_ids": [
+        "sample-search"
+      ]
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "opensearch_domain",
+        "id": "sample-search",
+        "name": "sample-search",
+        "arn": "arn:aws:es:ap-northeast-2:000000000000:domain/sample-search",
+        "engine_version": "OpenSearch_2.19",
+        "state": null,
+        "processing": false,
+        "created": true,
+        "instance_type": "t3.small.search",
+        "instance_count": 1,
+        "vpc_id": null,
+        "encryption_at_rest_enabled": true,
+        "node_to_node_encryption_enabled": true,
+        "https_required": true,
+        "advanced_security_enabled": true,
+        "security_checks": [
+          {
+            "id": "opensearch_encryption_at_rest",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "opensearch_node_to_node_encryption",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "opensearch_https_required",
+            "status": "pass",
+            "severity": "high"
+          },
+          {
+            "id": "opensearch_advanced_security_enabled",
+            "status": "pass",
+            "severity": "medium"
+          }
+        ]
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "list_msk_clusters": {
+    "schema_version": "1.0",
+    "tool": "list_msk_clusters",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "msk",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "msk",
+        "api": "ListClustersV2",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "arn:aws:kafka:ap-northeast-2:000000000000:cluster/sample-stream/00000000-0000-0000-0000-000000000001-1"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31
+    },
+    "notes": [],
+    "data": [
+      {
+        "kind": "msk_cluster",
+        "id": "arn:aws:kafka:ap-northeast-2:000000000000:cluster/sample-stream/00000000-0000-0000-0000-000000000001-1",
+        "name": "sample-stream",
+        "arn": "arn:aws:kafka:ap-northeast-2:000000000000:cluster/sample-stream/00000000-0000-0000-0000-000000000001-1",
+        "state": "ACTIVE",
+        "cluster_type": "PROVISIONED",
+        "created_at": null,
+        "kafka_version": "3.8.x",
+        "broker_count": 2,
+        "instance_type": "kafka.t3.small",
+        "encryption_at_rest_enabled": true,
+        "client_broker_encryption": "TLS",
+        "in_cluster_encryption_enabled": true,
+        "unauthenticated_enabled": false,
+        "iam_authentication_enabled": true,
+        "scram_authentication_enabled": null,
+        "tls_authentication_enabled": null,
+        "security_checks": [
+          {
+            "id": "msk_encryption_at_rest",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "msk_client_tls_only",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "msk_in_cluster_encryption",
+            "status": "pass",
+            "severity": "medium"
+          },
+          {
+            "id": "msk_unauthenticated_access_disabled",
+            "status": "pass",
+            "severity": "high"
+          }
+        ]
+      }
+    ],
+    "count": 1,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_resource_metrics:sample-worker": {
+    "schema_version": "1.0",
+    "tool": "get_resource_metrics",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "lambda",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "cloudwatch",
+        "api": "GetMetricData",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-worker"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "resource_id": "sample-worker",
+      "namespace": "AWS/Lambda",
+      "dimensions": [
+        {
+          "Name": "FunctionName",
+          "Value": "sample-worker"
+        }
+      ],
+      "start_time": "2026-10-25T23:00:00Z",
+      "end_time": "2026-10-26T00:00:00Z",
+      "period_seconds": 300,
+      "max_datapoints": 1440,
+      "resource_existence": "not_established_by_metrics"
+    },
+    "notes": [
+      "지표 버킷은 300초입니다. 결측은 0이 아니며, 지표 조회만으로 리소스 존재나 앱 정상 여부를 판단할 수 없습니다."
+    ],
+    "data": [
+      {
+        "resource_id": "sample-worker",
+        "metric_name": "Invocations",
+        "namespace": "AWS/Lambda",
+        "statistic": "Sum",
+        "period_seconds": 300,
+        "points": [
+          {
+            "timestamp": "2026-10-25T23:55:00Z",
+            "value": 120.0
+          }
+        ],
+        "data_status": "complete",
+        "status_code": "Complete"
+      },
+      {
+        "resource_id": "sample-worker",
+        "metric_name": "Errors",
+        "namespace": "AWS/Lambda",
+        "statistic": "Sum",
+        "period_seconds": 300,
+        "points": [
+          {
+            "timestamp": "2026-10-25T23:55:00Z",
+            "value": 3.0
+          }
+        ],
+        "data_status": "complete",
+        "status_code": "Complete"
+      },
+      {
+        "resource_id": "sample-worker",
+        "metric_name": "Throttles",
+        "namespace": "AWS/Lambda",
+        "statistic": "Sum",
+        "period_seconds": 300,
+        "points": [
+          {
+            "timestamp": "2026-10-25T23:55:00Z",
+            "value": 1.0
+          }
+        ],
+        "data_status": "complete",
+        "status_code": "Complete"
+      },
+      {
+        "resource_id": "sample-worker",
+        "metric_name": "Duration",
+        "namespace": "AWS/Lambda",
+        "statistic": "Average",
+        "period_seconds": 300,
+        "points": [
+          {
+            "timestamp": "2026-10-25T23:55:00Z",
+            "value": 87.0
+          }
+        ],
+        "data_status": "complete",
+        "status_code": "Complete"
+      }
+    ],
+    "datapoint_count": 4,
+    "count": 4,
+    "resource_count": 1,
+    "status": "ok",
+    "duration_ms": 0
+  },
+  "get_resource_metrics:sample-idle": {
+    "schema_version": "1.0",
+    "tool": "get_resource_metrics",
+    "mode": "sample",
+    "account_id": "000000000000",
+    "region": "ap-northeast-2",
+    "service": "lambda",
+    "observed_at": "2026-10-26T00:00:00Z",
+    "api_calls": [
+      {
+        "service": "sts",
+        "api": "GetCallerIdentity",
+        "region": "us-east-1",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      },
+      {
+        "service": "cloudwatch",
+        "api": "GetMetricData",
+        "region": "ap-northeast-2",
+        "success": true,
+        "retry_attempts": 0,
+        "duration_ms": 0
+      }
+    ],
+    "resource_ids": [
+      "sample-idle"
+    ],
+    "pagination_complete": true,
+    "truncated": false,
+    "permission_denied": false,
+    "errors": [],
+    "missing_resource_ids": [],
+    "scope": {
+      "max_resources": 100,
+      "max_pages": 10,
+      "max_api_calls": 31,
+      "resource_id": "sample-idle",
+      "namespace": "AWS/Lambda",
+      "dimensions": [
+        {
+          "Name": "FunctionName",
+          "Value": "sample-idle"
+        }
+      ],
+      "start_time": "2026-10-25T23:00:00Z",
+      "end_time": "2026-10-26T00:00:00Z",
+      "period_seconds": 300,
+      "max_datapoints": 1440,
+      "resource_existence": "not_established_by_metrics"
+    },
+    "notes": [
+      "지표 버킷은 300초입니다. 결측은 0이 아니며, 지표 조회만으로 리소스 존재나 앱 정상 여부를 판단할 수 없습니다."
+    ],
+    "data": [
+      {
+        "resource_id": "sample-idle",
+        "metric_name": "Invocations",
+        "namespace": "AWS/Lambda",
+        "statistic": "Sum",
+        "period_seconds": 300,
+        "points": [],
+        "data_status": "no_data",
+        "status_code": "Complete"
+      },
+      {
+        "resource_id": "sample-idle",
+        "metric_name": "Errors",
+        "namespace": "AWS/Lambda",
+        "statistic": "Sum",
+        "period_seconds": 300,
+        "points": [],
+        "data_status": "no_data",
+        "status_code": "Complete"
+      },
+      {
+        "resource_id": "sample-idle",
+        "metric_name": "Throttles",
+        "namespace": "AWS/Lambda",
+        "statistic": "Sum",
+        "period_seconds": 300,
+        "points": [],
+        "data_status": "no_data",
+        "status_code": "Complete"
+      },
+      {
+        "resource_id": "sample-idle",
+        "metric_name": "Duration",
+        "namespace": "AWS/Lambda",
+        "statistic": "Average",
+        "period_seconds": 300,
+        "points": [],
+        "data_status": "no_data",
+        "status_code": "Complete"
+      }
+    ],
+    "datapoint_count": 0,
+    "count": 4,
+    "resource_count": 1,
+    "status": "empty",
+    "duration_ms": 0
+  }
+}

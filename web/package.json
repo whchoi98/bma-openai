@@ -1,0 +1,38 @@
+{
+  "name": "bma-seoul-web-function",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node build-ui.mjs",
+    "start": "node index.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@aws-crypto/sha256-js": "5.2.0",
+    "@aws-sdk/client-bedrock-agentcore": "3.1157.0",
+    "@aws-sdk/client-bedrock-runtime": "3.1157.0",
+    "@aws-sdk/client-lambda": "3.1156.0",
+    "@aws-sdk/client-s3": "3.1156.0",
+    "@aws-sdk/client-sts": "3.1156.0",
+    "@aws-sdk/credential-provider-node": "3.972.88",
+    "@smithy/protocol-http": "5.6.2",
+    "@smithy/signature-v4": "5.7.4",
+    "docx": "9.6.1",
+    "pptxgenjs": "4.0.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "jszip": "3.10.1"
+  },
+  "overrides": {
+    "image-size": "2.0.4"
+  }
+}

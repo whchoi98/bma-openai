@@ -1,0 +1,634 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: BMA Seoul read-only inventory - Node 24 Web Function, bounded investigation worker and AgentCore Runtime V2 in us-east-1.
+Parameters:
+  AppRegion:
+    Type: String
+    Default: us-east-1
+    AllowedValues: [us-east-1]
+  TargetRegion:
+    Type: String
+    Default: ap-northeast-2
+    AllowedValues: [ap-northeast-2]
+  RuntimeName:
+    Type: String
+    Default: bma_seoul_inventory
+    AllowedPattern: "[A-Za-z][A-Za-z0-9_]{0,47}"
+  RuntimeRepositoryName:
+    Type: String
+    Default: bma-seoul-runtime
+  RuntimeImageUri:
+    Type: String
+    AllowedPattern: "[0-9]{12}\\.dkr\\.ecr\\.us-east-1\\.amazonaws\\.com/[a-z0-9._/-]+@sha256:[a-f0-9]{64}"
+    Description: Same-account immutable image digest; prepared and verified before deployment.
+  CodeBucket:
+    Type: String
+  CodeKey:
+    Type: String
+  CodeVersionId:
+    Type: String
+  BmaModel:
+    Type: String
+    Default: openai.gpt-6-luna
+    AllowedPattern: "openai\\.[A-Za-z0-9._-]+"
+    Description: Model discovered through the us-east-1 Mantle endpoint.
+  AgentBackend:
+    Type: String
+    Default: bma
+    AllowedValues: [bma, converse]
+  ConverseModel:
+    Type: String
+    Default: global.openai.gpt-6-luna
+    AllowedValues: [global.openai.gpt-6-luna]
+  AppAccessToken:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: Shared access key for this trusted-user demo; never expose it in outputs or browser code.
+  MaxResources:
+    Type: Number
+    Default: 100
+    MinValue: 1
+    MaxValue: 100
+  MaxPages:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 10
+  MaxMetricHours:
+    Type: Number
+    Default: 6
+    MinValue: 1
+    MaxValue: 6
+  MaxDatapoints:
+    Type: Number
+    Default: 1440
+    MinValue: 1
+    MaxValue: 1440
+  MaxTurnSeconds:
+    Type: Number
+    Default: 180
+    MinValue: 30
+    MaxValue: 300
+Rules:
+  DeployInAppRegion:
+    Assertions:
+      - Assert: !Equals [!Ref "AWS::Region", !Ref AppRegion]
+        AssertDescription: This stack must run in us-east-1.
+Conditions:
+  UseConverse: !Equals [!Ref AgentBackend, converse]
+Resources:
+  AppState:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      VersioningConfiguration: {Status: Enabled}
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireReports
+            Status: Enabled
+            Prefix: runs/
+            ExpirationInDays: 7
+            NoncurrentVersionExpiration: {NoncurrentDays: 1}
+          - Id: ExpireHistoryIndexes
+            Status: Enabled
+            Prefix: history/
+            ExpirationInDays: 7
+            NoncurrentVersionExpiration: {NoncurrentDays: 1}
+          - Id: ExpireInvestigations
+            Status: Enabled
+            Prefix: investigations/
+            ExpirationInDays: 7
+            NoncurrentVersionExpiration: {NoncurrentDays: 1}
+  AppStateTls:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AppState
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt AppState.Arn, !Sub "${AppState.Arn}/*"]
+            Condition: {Bool: {"aws:SecureTransport": false}}
+  WebLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RetentionInDays: 7
+  WorkerLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RetentionInDays: 7
+  RuntimeRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReasons:
+        EC2Lists: EC2 inventory Describe actions used here do not support resource-level authorization.
+        AdditionalLists: DynamoDB ListTables, OpenSearch ListDomainNames, and Kafka ListClustersV2 do not support resource-level authorization.
+        S3Discovery: ListAllMyBuckets discovers owned buckets and requires Resource "*"; the tool supplies BucketRegion and validates returned region.
+        ECSLists: ListClusters and ListServices do not support resource-level authorization.
+        LambdaList: ListFunctions does not support resource-level authorization.
+        ClassicMetrics: GetMetricData for AWS namespace metrics has no resource ARN; dataset grants are outside this demo.
+        CompositeAlarms: DescribeAlarms requires Resource "*" to return composite alarms.
+        STS: GetCallerIdentity has no resource-level permission requirement; it is separate from regional queries.
+        ECRToken: GetAuthorizationToken requires Resource "*" and is execution infrastructure, not resource inventory.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: bedrock-agentcore.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {"aws:SourceAccount": !Ref "AWS::AccountId"}
+              ArnLike:
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AppRegion}:${AWS::AccountId}:*"
+      Policies:
+        - PolicyName: SeoulReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: RegionalListAndMetricQueries
+                Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeRouteTables
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeInternetGateways
+                  - ec2:DescribeNatGateways
+                  - ec2:DescribeVpcEndpoints
+                  - ec2:DescribeVolumes
+                  - ecs:ListClusters
+                  - ecs:ListServices
+                  - lambda:ListFunctions
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:DescribeAlarms
+                  - dynamodb:ListTables
+                  - es:ListDomainNames
+                  - kafka:ListClustersV2
+                Resource: "*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: RdsInstanceQueries
+                Effect: Allow
+                Action: rds:DescribeDBInstances
+                Resource: !Sub "arn:${AWS::Partition}:rds:${TargetRegion}:${AWS::AccountId}:db:*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: EcsServiceQueries
+                Effect: Allow
+                Action: ecs:DescribeServices
+                Resource: !Sub "arn:${AWS::Partition}:ecs:${TargetRegion}:${AWS::AccountId}:service/*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: EventFunctionConfiguration
+                Effect: Allow
+                Action: lambda:GetFunctionConfiguration
+                Resource: !Sub "arn:${AWS::Partition}:lambda:${TargetRegion}:${AWS::AccountId}:function:*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: EcrRepositoryConfiguration
+                Effect: Allow
+                Action: ecr:DescribeRepositories
+                Resource: !Sub "arn:${AWS::Partition}:ecr:${TargetRegion}:${AWS::AccountId}:repository/*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: DynamoDbTableConfiguration
+                Effect: Allow
+                Action: [dynamodb:DescribeTable, dynamodb:DescribeContinuousBackups]
+                Resource: !Sub "arn:${AWS::Partition}:dynamodb:${TargetRegion}:${AWS::AccountId}:table/*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: CacheClusterConfiguration
+                Effect: Allow
+                Action: elasticache:DescribeCacheClusters
+                Resource: !Sub "arn:${AWS::Partition}:elasticache:${TargetRegion}:${AWS::AccountId}:cluster:*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: OpenSearchDomainConfiguration
+                Effect: Allow
+                Action: es:DescribeDomain
+                Resource: !Sub "arn:${AWS::Partition}:es:${TargetRegion}:${AWS::AccountId}:domain/*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+              - Sid: OwnedS3BucketConfiguration
+                Effect: Allow
+                Action:
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:GetBucketPolicyStatus
+                  - s3:GetBucketVersioning
+                Resource: !Sub "arn:${AWS::Partition}:s3:::*"
+                Condition:
+                  StringEquals:
+                    "aws:RequestedRegion": !Ref TargetRegion
+                    "s3:ResourceAccount": !Ref "AWS::AccountId"
+        - PolicyName: OwnedBucketDiscovery
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListAllMyBuckets
+                Resource: "*"
+                Condition:
+                  StringEquals: {"aws:RequestedRegion": !Ref TargetRegion}
+        - PolicyName: GlobalIdentityCheck
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: "*"
+        - PolicyName: BmaEnvironmentConnection
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [bedrock-mantle:RegisterEnvironment, bedrock-mantle:ConnectEnvironment]
+                Resource: !Sub "arn:${AWS::Partition}:bedrock-mantle:${AppRegion}:${AWS::AccountId}:project/*"
+        - PolicyName: RuntimeInfrastructure
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ImageAuthorization
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: ImagePull
+                Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: !Sub "arn:${AWS::Partition}:ecr:${AppRegion}:${AWS::AccountId}:repository/${RuntimeRepositoryName}"
+              - Sid: RuntimeLogs
+                Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AppRegion}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/${RuntimeName}*:*"
+  Runtime:
+    Type: AWS::BedrockAgentCore::Runtime
+    Properties:
+      AgentRuntimeName: !Ref RuntimeName
+      Description: Account-bound read-only Seoul inventory MCP for BMA.
+      PlatformVersion: V2
+      RoleArn: !GetAtt RuntimeRole.Arn
+      AgentRuntimeArtifact:
+        ContainerConfiguration: {ContainerUri: !Ref RuntimeImageUri}
+      NetworkConfiguration: {NetworkMode: PUBLIC}
+      ProtocolConfiguration: HTTP
+      LifecycleConfiguration:
+        IdleRuntimeSessionTimeout: 900
+        MaxLifetime: 28800
+      EnvironmentVariables:
+        APP_REGION: !Ref AppRegion
+        TARGET_REGION: !Ref TargetRegion
+        EXPECTED_ACCOUNT_ID: !Ref "AWS::AccountId"
+        DATA_MODE: live
+        MAX_RESOURCES: !Ref MaxResources
+        MAX_PAGES: !Ref MaxPages
+        MAX_METRIC_HOURS: !Ref MaxMetricHours
+        MAX_DATAPOINTS: !Ref MaxDatapoints
+        MODEL_PROCESSING_SCOPE: !If [UseConverse, global, app_region]
+        BMA_HOME_DIR: /home/app
+        BMA_CODEX_HOME: /home/app/.codex
+        BMA_STATE_DIR: /home/app/.bma
+        BMA_CODEX_BINARY: /opt/bma/bin/codex
+        AGENT_OBSERVABILITY_ENABLED: "false"
+  SessionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReason: CreateInference does not use model-specific ARNs; bedrock-mantle:Model restricts the chosen model.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: bedrock-mantle.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {"aws:SourceAccount": !Ref "AWS::AccountId"}
+              ArnLike:
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:bedrock-mantle:${AppRegion}:${AWS::AccountId}:*"
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              ArnLike:
+                "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AWS::StackName}-WebRole-*"
+      Policies:
+        - PolicyName: BmaInferenceAndDesignatedRuntime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: bedrock-mantle:CreateInference
+                Resource: "*"
+                Condition:
+                  StringEquals: {"bedrock-mantle:Model": !Ref BmaModel}
+              - Effect: Allow
+                Action: [bedrock-agentcore:InvokeAgentRuntime, bedrock-agentcore:StopRuntimeSession]
+                Resource:
+                  - !GetAtt Runtime.AgentRuntimeArn
+                  - !Sub "${Runtime.AgentRuntimeArn}/runtime-endpoint/DEFAULT"
+              - !If
+                - UseConverse
+                - Sid: RequestedGlobalConverseModel
+                  Effect: Allow
+                  Action: bedrock:InvokeModelWithResponseStream
+                  Resource:
+                    - !Sub "arn:${AWS::Partition}:bedrock:${AppRegion}:${AWS::AccountId}:inference-profile/${ConverseModel}"
+                    - !Sub "arn:${AWS::Partition}:bedrock:::foundation-model/openai.gpt-6-luna"
+                    - !Sub "arn:${AWS::Partition}:bedrock:${AppRegion}::foundation-model/openai.gpt-6-luna"
+                - !Ref "AWS::NoValue"
+  WebRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReasons:
+        Identity: GetCallerIdentity requires Resource "*"; resource discovery remains in RuntimeRole.
+        BmaProject: Session identifiers are created by BMA, so sessions are limited to projects in this account and AppRegion.
+        AppObjects: Generated report and investigation UUIDs require object suffix wildcards within fixed account and region paths.
+        ExactObjectProbe: Single-character wildcards match fixed UUID object keys; max-keys 1 permits bounded absence checks after ambiguous S3 access-denied responses.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BmaClient
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock-mantle:CreateAgentSession
+                  - bedrock-mantle:CreateAgentSessionEvent
+                  - bedrock-mantle:ListAgentSessionEvents
+                  - bedrock-mantle:ListAgentSessionItems
+                Resource: !Sub "arn:${AWS::Partition}:bedrock-mantle:${AppRegion}:${AWS::AccountId}:project/*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt SessionRole.Arn
+                Condition:
+                  StringEquals: {"iam:PassedToService": bedrock-mantle.amazonaws.com}
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !GetAtt SessionRole.Arn
+        - PolicyName: AppStateAndLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject]
+                Resource:
+                  - !Sub "${AppState.Arn}/runs/*"
+                  - !Sub "${AppState.Arn}/history/${AWS::AccountId}/${TargetRegion}/*"
+                  - !Sub "${AppState.Arn}/investigations/${AWS::AccountId}/${TargetRegion}/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt AppState.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix": !Sub "history/${AWS::AccountId}/${TargetRegion}/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt AppState.Arn
+                Condition:
+                  StringEquals:
+                    "s3:prefix": !Sub "investigations/${AWS::AccountId}/${TargetRegion}/index/"
+              - Sid: ProbeExactAppObject
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt AppState.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "runs/????????-????-????-????-????????????.json"
+                      - !Sub "investigations/${AWS::AccountId}/${TargetRegion}/sessions/????????-????-????-????-????????????.json"
+                      - !Sub "investigations/${AWS::AccountId}/${TargetRegion}/turns/????????-????-????-????-????????????.json"
+                      - !Sub "investigations/${AWS::AccountId}/${TargetRegion}/index/?????????????-????????-????-????-????-????????????.json"
+                  NumericLessThanEquals:
+                    "s3:max-keys": 1
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt WebLogs.Arn
+        - PolicyName: GlobalCallerIdentity
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: "*"
+        - PolicyName: DispatchDesignatedInvestigationWorker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt InvestigationWorker.Arn
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      WildcardReasons:
+        Identity: GetCallerIdentity requires Resource "*"; the worker has no resource discovery or direct inference permissions.
+        BmaProject: Create and reconciliation APIs use server-created sessions within projects in this account and AppRegion.
+        AppObjects: Generated report and investigation UUIDs require object suffix wildcards within fixed account and region paths.
+        OwnLogs: The log group ARN includes streams for this worker only.
+        ExactObjectProbe: Single-character wildcards match fixed UUID object keys; max-keys 1 permits bounded absence checks after ambiguous S3 access-denied responses.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BmaInvestigationSession
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock-mantle:CreateAgentSession
+                  - bedrock-mantle:GetAgentSession
+                  - bedrock-mantle:ListAgentSessions
+                  - bedrock-mantle:CreateAgentSessionEvent
+                  - bedrock-mantle:ListAgentSessionEvents
+                  - bedrock-mantle:ListAgentSessionItems
+                Resource: !Sub "arn:${AWS::Partition}:bedrock-mantle:${AppRegion}:${AWS::AccountId}:project/*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt SessionRole.Arn
+                Condition:
+                  StringEquals: {"iam:PassedToService": bedrock-mantle.amazonaws.com}
+              - Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: "*"
+        - PolicyName: InvestigationStateAndOwnLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource:
+                  - !Sub "${AppState.Arn}/runs/*"
+                  - !Sub "${AppState.Arn}/history/${AWS::AccountId}/${TargetRegion}/*"
+                  - !Sub "${AppState.Arn}/investigations/${AWS::AccountId}/${TargetRegion}/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt AppState.Arn
+                Condition:
+                  StringEquals:
+                    "s3:prefix": !Sub "investigations/${AWS::AccountId}/${TargetRegion}/index/"
+              - Sid: ProbeExactAppObject
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt AppState.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "runs/????????-????-????-????-????????????.json"
+                      - !Sub "investigations/${AWS::AccountId}/${TargetRegion}/sessions/????????-????-????-????-????????????.json"
+                      - !Sub "investigations/${AWS::AccountId}/${TargetRegion}/turns/????????-????-????-????-????????????.json"
+                      - !Sub "investigations/${AWS::AccountId}/${TargetRegion}/index/?????????????-????????-????-????-????-????????????.json"
+                  NumericLessThanEquals:
+                    "s3:max-keys": 1
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt WorkerLogs.Arn
+  InvestigationWorker:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-investigation-worker"
+      Description: Bounded BMA investigation turns with persisted progress.
+      Runtime: nodejs24.x
+      Handler: investigation-worker.handler
+      Architectures: [arm64]
+      MemorySize: 512
+      Timeout: 360
+      ReservedConcurrentExecutions: 2
+      Role: !GetAtt WorkerRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+        S3ObjectVersion: !Ref CodeVersionId
+      Environment:
+        Variables:
+          DATA_MODE: live
+          APP_REGION: !Ref AppRegion
+          TARGET_REGION: !Ref TargetRegion
+          EXPECTED_ACCOUNT_ID: !Ref "AWS::AccountId"
+          BMA_MODEL: !Ref BmaModel
+          AGENT_BACKEND: bma
+          BMA_RUNTIME_ARN: !GetAtt Runtime.AgentRuntimeArn
+          BMA_SESSION_ROLE_ARN: !GetAtt SessionRole.Arn
+          APP_STATE_BUCKET: !Ref AppState
+          MAX_RESOURCES: !Ref MaxResources
+          MAX_PAGES: !Ref MaxPages
+          MAX_METRIC_HOURS: !Ref MaxMetricHours
+          MAX_DATAPOINTS: !Ref MaxDatapoints
+          MAX_TURN_SECONDS: "300"
+      LoggingConfig:
+        LogGroup: !Ref WorkerLogs
+        LogFormat: JSON
+        ApplicationLogLevel: WARN
+        SystemLogLevel: INFO
+  InvestigationWorkerAsync:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref InvestigationWorker
+      Qualifier: "$LATEST"
+      MaximumRetryAttempts: 1
+      MaximumEventAgeInSeconds: 600
+  WebFunction:
+    Type: AWS::Lambda::WebFunction
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-web"
+  WebRevision:
+    Type: AWS::Lambda::WebFunctionRevision
+    Properties:
+      FunctionName: !Ref WebFunction
+      BuildConfig:
+        CodeConfig:
+          S3Object:
+            Bucket: !Ref CodeBucket
+            Key: !Ref CodeKey
+            VersionId: !Ref CodeVersionId
+        RuntimeConfig: {Runtime: nodejs24.x}
+      ServiceConfig:
+        ExecutionRoleArn: !GetAtt WebRole.Arn
+        TimeoutSeconds: 600
+        MaxConcurrencyPerEnvironment: 8
+        EnvironmentVariables:
+          DATA_MODE: live
+          APP_REGION: !Ref AppRegion
+          TARGET_REGION: !Ref TargetRegion
+          EXPECTED_ACCOUNT_ID: !Ref "AWS::AccountId"
+          BMA_MODEL: !Ref BmaModel
+          AGENT_BACKEND: !Ref AgentBackend
+          CONVERSE_MODEL: !Ref ConverseModel
+          BMA_RUNTIME_ARN: !GetAtt Runtime.AgentRuntimeArn
+          BMA_SESSION_ROLE_ARN: !GetAtt SessionRole.Arn
+          APP_STATE_BUCKET: !Ref AppState
+          APP_ACCESS_TOKEN: !Ref AppAccessToken
+          INVESTIGATION_WORKER_ARN: !GetAtt InvestigationWorker.Arn
+          MAX_RESOURCES: !Ref MaxResources
+          MAX_PAGES: !Ref MaxPages
+          MAX_METRIC_HOURS: !Ref MaxMetricHours
+          MAX_DATAPOINTS: !Ref MaxDatapoints
+          MAX_TURN_SECONDS: !Ref MaxTurnSeconds
+        TelemetryConfig:
+          LoggingConfig:
+            LogGroup: !Ref WebLogs
+            ApplicationLogLevel: WARN
+            SystemLogLevel: INFO
+  WebEndpoint:
+    Type: AWS::Lambda::WebFunctionEndpoint
+    Properties:
+      FunctionName: !Ref WebFunction
+      EndpointName: demo
+      EndpointType: HomeRegion
+      AuthType: ApplicationManaged
+      RevisionWeights:
+        - RevisionId: !GetAtt WebRevision.RevisionId
+          Weight: 100
+      ScalingConfig: {MaxEnvironments: 2}
+      ThrottleConfig: {RateLimit: 100}
+Outputs:
+  WebUrl:
+    Value: !Sub "https://${WebEndpoint.DomainName}"
+  RuntimeArn:
+    Value: !GetAtt Runtime.AgentRuntimeArn
+  RuntimeRoleArn:
+    Value: !GetAtt RuntimeRole.Arn
+  SessionRoleArn:
+    Value: !GetAtt SessionRole.Arn
+  WebRoleArn:
+    Value: !GetAtt WebRole.Arn
+  InvestigationWorkerArn:
+    Value: !GetAtt InvestigationWorker.Arn
+  WorkerRoleArn:
+    Value: !GetAtt WorkerRole.Arn
+  StateBucket:
+    Value: !Ref AppState
+  ExpectedAccountId:
+    Value: !Ref "AWS::AccountId"
+  AppRegion:
+    Value: !Ref AppRegion
+  TargetRegion:
+    Value: !Ref TargetRegion

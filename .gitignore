@@ -1,0 +1,14 @@
+.venv/
+.cache/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.egg-info/
+.env
+build/
+runtime/bin/
+artifacts/
+!artifacts/.gitkeep
+node_modules/
+.claude/settings.local.json
